@@ -32,6 +32,8 @@ TargetDirectories.txt
 *.swp
 *.swo
 *.swn
+.cache/
+
 
 # Ignore temporary or system files
 *~
