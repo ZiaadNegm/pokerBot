@@ -1,16 +1,45 @@
-#include <stdexcept>
-#include <sys/types.h>
+/* This file implements the Player class. It does so by providing a class
+ * Player: Simulates a player in a poker game.
+ *    -getName returns the name of the player.
+ *    -getId returns the id of the player.
+ *    -getHand returns the hand of the player.
+ *    -getChips returns the amount of chips the player has.
+ *    -getCurrentBet returns the amount of chips the player has bet in the
+ * current round.
+ *    -canPlayerCheck returns if the player can check.
+ *    -getBlind returns the blind of the player.
+ *    -hasPlayerFolded returns if the player has folded.
+ *    -setChips sets the amount of chips the player has.
+ *    -setCurrentBet sets the amount of chips the player has bet in the current
+ * round.
+ *    -setCanCheck sets if the player can check.
+ *    -setBlind sets the blind of the player.
+ *    -setHasFolded sets if the player has folded.
+ *    -receiveCards sets the hand of the player.
+ *    -resetCards resets the hand of the player.
+ *    -addChips adds amount to the player's chips.
+ *    -deductChips deducts amount from the player's chips.
+ *    -bet subtracts the amount the player wants to bet from the player's chips
+ * and returns the betted amount.
+ *    -raise raises the player's current bet with raiseAmount.
+ *    -check does nothing.
+ *    -call calls the current bet.
+ *    -fold folds the player's hand.
+ *    -resetCurrentBet resets the player's current bet.
+ */
 module; // <--- global module fragment
 #include <cstdint>
+#include <stdexcept>
 #include <string>
+#include <sys/types.h>
 #include <vector>
 
 export module player; // <--- now declare the actual module interface
 import cards;
 
-enum class Blind { bigBlind, smallBlind, notBlind };
+export enum class Blind { bigBlind, smallBlind, notBlind };
 
-class Player {
+export class Player {
 private:
   std::string name;
   int id;
