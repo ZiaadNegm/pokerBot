@@ -15,8 +15,16 @@ target_sources(cards
         FILE_SET CXX_MODULES FILES
             src/cards.cppm
             src/player.cppm
+    PRIVATE
+        src/game.cpp
 )
 
+
+add_executable(poker_game src/game.cpp)
+target_link_libraries(poker_game
+    PRIVATE
+        cards
+)
 
 add_executable(cards_test tests/cards_test.cpp)
 target_link_libraries(cards_test

@@ -37,6 +37,8 @@ module; // <--- global module fragment
 export module player; // <--- now declare the actual module interface
 import cards;
 
+using money = std::uint32_t;
+
 export enum class Blind { bigBlind, smallBlind, notBlind };
 
 export class Player {
@@ -44,15 +46,15 @@ private:
   std::string name;
   int id;
   std::vector<Card> hand;
-  uint32_t chips;
-  uint32_t currentBet;
+  money chips;
+  money currentBet;
   bool canCheck;
   Blind blind;
   bool hasFolded;
 
 public:
-  Player(std::string name, int id, std::vector<Card> &&hand, uint32_t chips,
-         Blind blind, uint32_t currentBet = 0)
+  Player(std::string name, int id, std::vector<Card> &&hand, money chips,
+         Blind blind, money currentBet = 0)
       : name(name), id(id), hand(std::move(hand)), chips(chips),
         currentBet(currentBet), canCheck(false), blind(blind),
         hasFolded(false) {}
@@ -61,15 +63,15 @@ public:
   const std::string &getName() const { return name; }
   int getId() const { return id; }
   const std::vector<Card> &getHand() const { return hand; }
-  uint32_t getChips() const { return chips; }
-  uint32_t getCurrentBet() const { return currentBet; }
+  money getChips() const { return chips; }
+  money getCurrentBet() const { return currentBet; }
   bool canPlayerCheck() const { return canCheck; }
   Blind getBlind() const { return blind; }
   bool hasPlayerFolded() const { return hasFolded; }
 
   // Setters.
-  void setChips(uint32_t newChips) { chips = newChips; }
-  void setCurrentBet(uint32_t newBet) { currentBet = newBet; }
+  void setChips(money newChips) { chips = newChips; }
+  void setCurrentBet(money newBet) { currentBet = newBet; }
   void setCanCheck(bool check) { canCheck = check; }
   void setBlind(Blind newBlind) { blind = newBlind; }
   void setHasFolded(bool folded) { hasFolded = folded; }
@@ -97,7 +99,7 @@ public:
 
   // Subtracts what player wants to bet, and returns the betted amount for game
   // purposes.
-  uint32_t bet(uint32_t amount) {
+  money bet(money amount) {
     if (amount > chips) {
       throw std::invalid_argument("Bet amount exceeds available chips");
     }
@@ -107,8 +109,8 @@ public:
   }
 
   // Raises the players currentBet with raiseAmount.
-  int raise(uint32_t globalCurrentBet, uint32_t raiseAmount) {
-    uint32_t totalRaise = (globalCurrentBet - currentBet) + raiseAmount;
+  int raise(money globalCurrentBet, money raiseAmount) {
+    money totalRaise = (globalCurrentBet - currentBet) + raiseAmount;
     if (totalRaise > chips) {
       throw std::invalid_argument("Raise amount exceeds available chips");
     }
@@ -121,7 +123,7 @@ public:
   void check();
 
   int call(int globalCurrentBet) {
-    uint32_t toCall = globalCurrentBet - currentBet;
+    money toCall = globalCurrentBet - currentBet;
     if (toCall > chips) {
       toCall = chips;
     }
