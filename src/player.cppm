@@ -43,8 +43,9 @@ export enum class Blind { bigBlind, smallBlind, notBlind };
 
 export class Player {
 private:
-  std::string name;
+  static int nextId;
   int id;
+  std::string name;
   std::vector<Card> hand;
   money chips;
   money currentBet;
@@ -53,13 +54,14 @@ private:
   bool hasFolded;
 
 public:
-  Player(std::string name, int id, std::vector<Card> &&hand, money chips,
-         Blind blind, money currentBet = 0)
-      : name(name), id(id), hand(std::move(hand)), chips(chips),
+  Player(std::string name, std::vector<Card> &&hand, money chips, Blind blind,
+         money currentBet = 0)
+      : id(getNextId()), name(name), hand(std::move(hand)), chips(chips),
         currentBet(currentBet), canCheck(false), blind(blind),
         hasFolded(false) {}
 
   // Getters.
+  static int getNextId() { return nextId++; }
   const std::string &getName() const { return name; }
   int getId() const { return id; }
   const std::vector<Card> &getHand() const { return hand; }
@@ -136,3 +138,5 @@ public:
 
   void resetCurrentBet() { currentBet = 0; }
 };
+
+int Player::nextId = 0;
