@@ -140,3 +140,7 @@ public:
 };
 
 int Player::nextId = 0;
+
+void Player::check() {
+  // empty
+}
