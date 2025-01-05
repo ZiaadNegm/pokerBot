@@ -1,3 +1,4 @@
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
 #include <stdexcept>
@@ -49,6 +50,81 @@ private:
   money minimumBet;
   size_t playerSize;
 
+  // Provides default initialization.
+  void defaultConfig() {
+    std::cout << "Default configuration" << std::endl;
+    std::cout << std::endl;
+  }
+
+  // Customizes the game to the persons liking.
+  void customConfig() {
+    std::cout << "Custom configuration: " << std::endl;
+
+    std::cout << "Enter amount of players (2-" << poker::MAX_PLAYERS << "): ";
+    std::cin >> playerSize;
+
+    std::cout << "Enter minimum bet: ";
+    std::cin >> minimumBet;
+
+    if ((playerSize > poker::MAX_PLAYERS) ||
+        (playerSize < poker::MIN_PLAYERS)) {
+      throw std::invalid_argument(
+          "Invalid amount of players added. Must be between 2 and up to 6");
+    }
+    if (minimumBet <= 0) {
+      throw std::invalid_argument(
+          "Invalid minimumBet provided. Must be greater than 0");
+    }
+  }
+
+  void resetBlindsandSetBlinds() {
+    size_t posPreviousSmallBlind = (dealerPosition) % PlayersTurn.size();
+    size_t posPreviousBigBlind = (dealerPosition + 1) % PlayersTurn.size();
+    size_t nextBigBlind = (posPreviousBigBlind + 1) % PlayersTurn.size();
+
+    Player prevSmallBlind = PlayersTurn[posPreviousBigBlind];
+    Player prevBigBlind = PlayersTurn[posPreviousBigBlind];
+    Player nextBigBlind = PlayersTurn[nextBigBlind];
+
+    prevSmallBlind.setBlind(Blind::notBlind);
+    prevBigBlind.setBlind(Blind::smallBlind);
+    nextBigBlind.setBlind(Blind::bigBlind);
+  }
+
+  // Calculates and collects the bets of the blinds.
+  void collectBlindBets() {
+    // Calculates the position based on a queue of the Blinds.
+    size_t smallBlindPos = (dealerPosition + 1) % PlayersTurn.size();
+    size_t bigBlindPos = (dealerPosition + 2) % PlayersTurn.size();
+
+    // Retrieves the position of the Blinds.
+    Player smallBlind = PlayersTurn[smallBlindPos];
+    Player bigBlind = PlayersTurn[bigBlindPos];
+
+    // Sets players to their certain Blinds to recongize them later on.
+    smallBlind.setBlind(Blind::smallBlind);
+    bigBlind.setBlind(Blind::bigBlind);
+
+    // BB and SB bet the required amount.
+    smallBlind.bet(minimumBet / 2);
+    bigBlind.bet(minimumBet);
+
+    pot += minimumBet * 1.5;
+    return;
+  }
+
+  void simulateRound() {
+    while (!(PlayersTurn.size() == 1)) {
+      collectBlindBets();
+      adjustBlindpos();
+      dealCards();
+      letPlayerstakeAction();
+    }
+    givePotToLastStanding();
+    resetCards();
+    addEveryoneBack();
+  }
+
 public:
   Game()
       : deck(), pot(0), highestBettedInRound(0), currentBet(0), PlayersTurn(),
@@ -76,32 +152,16 @@ public:
     }
   }
 
-  // Provides default initialization.
-  void defaultConfig() {
-    std::cout << "Default configuration" << std::endl;
-    std::cout << std::endl;
-  }
-
-  // Customizes the game to the persons liking.
-  void customConfig() {
-    std::cout << "Custom configuration: " << std::endl;
-
-    std::cout << "Enter amount of players (2-" << poker::MAX_PLAYERS << "): ";
-    std::cin >> playerSize;
-
-    std::cout << "Enter minimum bet: ";
-    std::cin >> minimumBet;
-
-    if ((playerSize > poker::MAX_PLAYERS) ||
-        (playerSize < poker::MIN_PLAYERS)) {
-      throw std::invalid_argument(
-          "Invalid amount of players added. Must be between 2 and up to 6");
-    }
-    if (minimumBet <= 0) {
-      throw std::invalid_argument(
-          "Invalid minimumBet provided. Must be greater than 0");
-    }
+  void printGameProperties() {
+    std::cout << "Pot: " << pot << std::endl
+              << "Player size: " << playerSize << std::endl
+              << "Min bet: " << minimumBet << std::endl;
   }
 };
 
-int main() { return 0; }
+int main() {
+  Game game;
+  game.startGame();
+
+  return 0;
+}
