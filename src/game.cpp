@@ -3,6 +3,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <sys/types.h>
+#include <system_error>
 #include <unordered_map>
 #include <vector>
 import cards;
@@ -79,6 +80,7 @@ private:
     }
   }
 
+  // Sets and Removes the BB and SB for a round.
   void resetBlindsandSetBlinds() {
     size_t posPreviousSmallBlind = (dealerPosition) % PlayersTurn.size();
     size_t posPreviousBigBlind = (dealerPosition + 1) % PlayersTurn.size();
@@ -98,6 +100,7 @@ private:
 
     Player SB = PlayersTurn[SBIndex];
     Player BB = PlayersTurn[BBIndex];
+
     // BB and SB bet the required amount.
     SB.bet(minimumBet / 2);
     BB.bet(minimumBet);
@@ -106,10 +109,53 @@ private:
     return;
   }
 
+  void dealHoleCards() {
+    for (int round = 0; round < 2; ++round) {
+      size_t currentIndex = dealerPosition;
+      do {
+        Card dealtCard = deck.dealCard();
+
+        std::vector<Card> currentHand = PlayersTurn[currentIndex].getHand();
+        currentHand.push_back(dealtCard);
+
+        PlayersTurn[currentIndex].receiveCards(currentHand);
+
+        currentIndex = (currentIndex + 1) % PlayersTurn.size();
+
+      } while (currentIndex != dealerPosition);
+    }
+  }
+
+  // Deals quantityCards amount of communityCards to.
+  void dealCommunityCards(int quantityCards) {
+    deck.burnCard();
+    for (int i = 0; i < quantityCards; i++) {
+      communityCards.emplace_back(deck.dealCard());
+    }
+    return;
+  }
+
+  void dealCards() {
+    switch (state) {
+    case gameState::preFlop:
+      dealHoleCards();
+      break;
+    case gameState::flop:
+      dealCommunityCards(3);
+      break;
+    case gameState::turn:
+    case gameState::river:
+      dealCommunityCards(1);
+      break;
+    default:
+      break;
+    }
+  }
+
   void simulateRound() {
+    resetBlindsandSetBlinds();
+    collectBlindBets();
     while (!(PlayersTurn.size() == 1)) {
-      collectBlindBets();
-      adjustBlindpos();
       dealCards();
       letPlayerstakeAction();
     }
