@@ -49,6 +49,8 @@ private:
   size_t dealerPosition;
   money minimumBet;
   size_t playerSize;
+  size_t SBIndex;
+  size_t BBIndex;
 
   // Provides default initialization.
   void defaultConfig() {
@@ -82,32 +84,23 @@ private:
     size_t posPreviousBigBlind = (dealerPosition + 1) % PlayersTurn.size();
     size_t nextBigBlind = (posPreviousBigBlind + 1) % PlayersTurn.size();
 
-    Player prevSmallBlind = PlayersTurn[posPreviousBigBlind];
-    Player prevBigBlind = PlayersTurn[posPreviousBigBlind];
-    Player nextBigBlind = PlayersTurn[nextBigBlind];
+    PlayersTurn[posPreviousBigBlind].setBlind(Blind::smallBlind);
+    PlayersTurn[posPreviousSmallBlind].setBlind(Blind::notBlind);
+    PlayersTurn[nextBigBlind].setBlind(Blind::bigBlind);
 
-    prevSmallBlind.setBlind(Blind::notBlind);
-    prevBigBlind.setBlind(Blind::smallBlind);
-    nextBigBlind.setBlind(Blind::bigBlind);
+    SBIndex = posPreviousBigBlind;
+    BBIndex = nextBigBlind;
+    return;
   }
 
   // Calculates and collects the bets of the blinds.
   void collectBlindBets() {
-    // Calculates the position based on a queue of the Blinds.
-    size_t smallBlindPos = (dealerPosition + 1) % PlayersTurn.size();
-    size_t bigBlindPos = (dealerPosition + 2) % PlayersTurn.size();
 
-    // Retrieves the position of the Blinds.
-    Player smallBlind = PlayersTurn[smallBlindPos];
-    Player bigBlind = PlayersTurn[bigBlindPos];
-
-    // Sets players to their certain Blinds to recongize them later on.
-    smallBlind.setBlind(Blind::smallBlind);
-    bigBlind.setBlind(Blind::bigBlind);
-
+    Player SB = PlayersTurn[SBIndex];
+    Player BB = PlayersTurn[BBIndex];
     // BB and SB bet the required amount.
-    smallBlind.bet(minimumBet / 2);
-    bigBlind.bet(minimumBet);
+    SB.bet(minimumBet / 2);
+    BB.bet(minimumBet);
 
     pot += minimumBet * 1.5;
     return;
