@@ -1,16 +1,16 @@
 #include <cstddef>
 #include <cstdint>
+#include <deque>
 #include <iostream>
+#include <map>
 #include <stdexcept>
+#include <string>
 #include <sys/types.h>
 #include <system_error>
 #include <unordered_map>
 #include <vector>
 import cards;
 import player;
-#include <deque>
-#include <map>
-#include <string>
 
 // Shorter aliases
 using money = std::uint32_t;
@@ -80,6 +80,7 @@ private:
       throw std::invalid_argument(
           "Invalid amount of players added. Must be between 2 and up to 6");
     }
+
     if (minimumBet <= 0) {
       throw std::invalid_argument(
           "Invalid minimumBet provided. Must be greater than 0");
@@ -189,229 +190,294 @@ private:
       break;
     }
   }
-
-  actions action(Player &player, position pos, bool isYou) {
+  int getUserOption(Player &player) {
     int option = 0;
-    printCommunityCards();
-    if (isYou) {
-      // Prompt user for an action
-      while (true) {
-        std::cout << "\n[" << player.getName() << "] Choose your action:\n"
-                  << "1. Fold\n"
-                  << "2. Check\n"
-                  << "3. Call\n"
-                  << "4. Raise\n"
-                  << "5. All-In\n"
-                  << "> ";
-        std::cin >> option;
-        if (std::cin.fail() || option < 1 || option > 5) {
-          std::cin.clear();
-          std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-          std::cout << "Invalid choice. Enter a number 1..5.\n";
-          continue;
-        }
-        break;
+    while (true) {
+      std::cout << "\n[" << player.getName() << "] Choose your action:\n"
+                << "1. Fold\n"
+                << "2. Check\n"
+                << "3. Call\n"
+                << "4. Raise\n"
+                << "5. All-In\n"
+                << "> ";
+      std::cin >> option;
+      if (std::cin.fail() || option < 1 || option > 5) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid choice. Enter a number 1..5.\n";
+        continue;
       }
-    } else {
-      // Simple bot logic
-      int randomChoice = 1 + (rand() % 5);
-      option = randomChoice;
-      std::cout << "[" << player.getName() << " (BOT)] at Position " << pos
-                << " with cards " << player.getHand()[0].cardToString()
-                << " and " << player.getHand()[1].cardToString() << std::endl
-                << " chooses option "
-                << " " << option << "\n";
+      break;
     }
+    return option;
+  }
 
-    switch (option) {
-    case 1:          // Fold
-      player.fold(); // sets hasPlayerFolded(true)
+  int getBotOption(Player &player, position pos) {
+    int option = 1 + (rand() % 5);
+    std::cout << "[" << player.getName() << " (BOT)] at Position " << pos
+              << " with cards " << player.getHand()[0].cardToString() << " and "
+              << player.getHand()[1].cardToString() << std::endl
+              << " chooses option " << option << "\n";
+    return option;
+  }
+
+  // Helper function to execute Call action
+  actions executeCall(Player &player, money toCall, money &pot,
+                      money &highestBettedInRound) {
+    pot += player.bet(toCall);
+    std::cout << "[" << player.getName() << "] calls " << toCall << " chips.\n";
+    if (toCall > highestBettedInRound) {
+      highestBettedInRound = toCall;
+    }
+    return actions::call;
+  }
+
+  // Function to handle human player's decision to Fold or All-In when calling
+  actions handleHumanFoldOrAllInCall(Player &player, money toCall, money &pot,
+                                     money &highestBettedInRound) {
+    while (true) {
+      std::cout << "You only have " << player.getChips() << " chips, but need "
+                << toCall << " to call.\nPick action:\n"
+                << "1. Fold\n"
+                << "2. Go All-In\n> ";
+      int choice;
+      std::cin >> choice;
+
+      if (std::cin.fail()) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid input.\n";
+        continue;
+      }
+
+      if (choice == 1) {
+        player.fold();
+        std::cout << "[" << player.getName() << "] folds.\n";
+        return actions::fold;
+      } else if (choice == 2) {
+        return executeAllIn(player, pot, highestBettedInRound);
+      } else {
+        std::cout << "Invalid choice. Please try again.\n";
+      }
+    }
+  }
+
+  // Function to handle bot player's decision to Fold or All-In when calling
+  actions handleBotFoldOrAllInCall(Player &player, money &pot,
+                                   money &highestBettedInRound) {
+    bool doAllIn = (rand() % 2 == 0); // 50-50 chance
+    if (doAllIn) {
+      return executeAllIn(player, pot, highestBettedInRound);
+    } else {
+      player.fold();
       std::cout << "[" << player.getName() << "] folds.\n";
       return actions::fold;
-    case 2: // Check
-      if (highestBettedInRound == 0) {
-        player.check();
-        std::cout << "[" << player.getName() << "] checks.\n";
-        return actions::check;
-      } else {
-        std::cout << "A bet has already been made. This player cannot check.\n"
-                  << std::endl;
-        // recursively call action() again
-        return action(player, pos, isYou);
-      }
-    case 3: // Call
-    {
-      money toCall = highestBettedInRound - player.getCurrentBet();
-
-      // If there's no extra bet to match
-      if (toCall <= 0) {
-        std::cout << "[" << player.getName()
-                  << "] checks (no extra to call).\n";
-        return actions::check;
-      }
-
-      // If toCall is more than the player's chips => fold or all-in
-      if (toCall > player.getChips()) {
-        // If it's the human player, ask them
-        if (isYou) {
-          while (true) {
-            std::cout << "You only have " << player.getChips()
-                      << " chips, but need " << toCall
-                      << " to call.\nPick action:\n"
-                      << "1. Fold\n"
-                      << "2. Go All-In\n> ";
-            int choice;
-            std::cin >> choice;
-            if (std::cin.fail()) {
-              std::cin.clear();
-              std::cin.ignore(std::numeric_limits<std::streamsize>::max(),
-                              '\n');
-              std::cout << "Invalid input.\n";
-              continue;
-            }
-
-            if (choice == 1) {
-              player.fold();
-              std::cout << "[" << player.getName() << "] folds.\n";
-              return actions::fold;
-            } else if (choice == 2) {
-              money allin = player.getChips();
-              pot += player.bet(allin);
-              std::cout << "[" << player.getName() << "] goes ALL-IN with "
-                        << allin << " chips.\n";
-              if (allin > highestBettedInRound) {
-                highestBettedInRound = allin;
-              }
-              return actions::allIn;
-            } else {
-              std::cout << "Invalid choice. Please try again.\n";
-            }
-          }
-        } else {
-          // If it's a bot, pick fold or all-in automatically (e.g. 50-50).
-          bool doAllIn = (rand() % 2 == 0);
-          if (doAllIn) {
-            money allin = player.getChips();
-            pot += player.bet(allin);
-            std::cout << "[" << player.getName() << "] goes ALL-IN with "
-                      << allin << " chips.\n";
-            if (allin > highestBettedInRound) {
-              highestBettedInRound = allin;
-            }
-            return actions::allIn;
-          } else {
-            player.fold();
-            std::cout << "[" << player.getName() << "] folds.\n";
-            return actions::fold;
-          }
-        }
-      }
-
-      // Otherwise, they can afford the call
-      pot += player.bet(toCall);
-      std::cout << "[" << player.getName() << "] calls " << toCall << ".\n";
-      return actions::call;
     }
+  }
+
+  // Refactored handleCall function
+  actions handleCall(Player &player, bool isYou, money &pot,
+                     money &highestBettedInRound) {
+    money toCall = highestBettedInRound - player.getCurrentBet();
+
+    // 1. If there's no extra to call:
+    if (toCall <= 0) {
+      std::cout << "[" << player.getName() << "] checks (no extra to call).\n";
+      player.check();
+      return actions::check;
+    }
+
+    // 2. If toCall > player's chips, ask fold/all-in (if human) or do so
+    // automatically (if bot)
+    if (toCall > player.getChips()) {
+      if (isYou) {
+        // Handle human player's decision
+        return handleHumanFoldOrAllInCall(player, toCall, pot,
+                                          highestBettedInRound);
+      } else {
+        // Handle bot player's decision
+        return handleBotFoldOrAllInCall(player, pot, highestBettedInRound);
+      }
+    }
+
+    // 3. Otherwise, the player can afford to call
+    return executeCall(player, toCall, pot, highestBettedInRound);
+  }
+
+  // Ensures that the player can't partake in any more rounds untill a new game
+  // is started.
+  actions handleFold(Player &player) {
+    player.fold();
+    std::cout << "[" << player.getName() << "] folds.\n";
+    return actions::fold;
+  }
+
+  actions handleCheck(Player &player, position pos, bool isYou) {
+    // Player can get away with betting nothing as no bets are currently placed
+    // into the round.
+    if (highestBettedInRound == 0) {
+      player.check();
+      std::cout << "[" << player.getName() << "] checks.\n";
+      return actions::check;
+    } else { // This player must check.
+      std::cout << "A bet has already been made. This player cannot check.\n";
+      // Recursively call action again
+      return action(player, pos, isYou, pot, highestBettedInRound);
+    }
+  }
+
+  money promptRaiseAmount(Player &player, bool isYou) {
+    money raiseAmount = 0;
+    if (!isYou) {
+      // Bot picks random raise
+      raiseAmount = 10 + (rand() % 20);
+    } else {
+      std::cout << "[" << player.getName() << "] Raise amount?\n> ";
+      std::cin >> raiseAmount;
+
+      if (std::cin.fail() || raiseAmount < 1) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid raise. Defaulting to 1.\n";
+        raiseAmount = 1;
+      }
+    }
+    return raiseAmount;
+  }
+
+  // Helper function to execute All-In action
+  actions executeAllIn(Player &player, money &pot,
+                       money &highestBettedInRound) {
+    money allin = player.getChips();
+    pot += player.bet(allin);
+    std::cout << "[" << player.getName() << "] goes ALL-IN with " << allin
+              << " chips.\n";
+    if (allin > highestBettedInRound) {
+      highestBettedInRound = allin;
+    }
+    return actions::allIn;
+  }
+
+  // Function to handle human player's decision to Fold or All-In
+  actions handleHumanFoldOrAllIn(Player &player, money totalRaise, money &pot,
+                                 money &highestBettedInRound) {
+    while (true) {
+      std::cout << "You only have " << player.getChips()
+                << " chips, but total raise would be " << totalRaise
+                << ".\nPick action:\n"
+                << "1. Fold\n"
+                << "2. Go All-In\n> ";
+      int choice;
+      std::cin >> choice;
+
+      if (std::cin.fail()) {
+        std::cin.clear();
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        std::cout << "Invalid input.\n";
+        continue;
+      }
+
+      if (choice == 1) {
+        player.fold();
+        std::cout << "[" << player.getName() << "] folds.\n";
+        return actions::fold;
+      } else if (choice == 2) {
+        return executeAllIn(player, pot, highestBettedInRound);
+      } else {
+        std::cout << "Invalid choice. Please try again.\n";
+      }
+    }
+  }
+
+  // Function to handle bot player's decision to Fold or All-In
+  actions handleBotFoldOrAllIn(Player &player, money &pot,
+                               money &highestBettedInRound) {
+    bool doAllIn = (rand() % 2 == 0); // 50-50 chance
+    if (doAllIn) {
+      return executeAllIn(player, pot, highestBettedInRound);
+    } else {
+      player.fold();
+      std::cout << "[" << player.getName() << "] folds.\n";
+      return actions::fold;
+    }
+  }
+
+  // Refactored handleRaiseAllInOrFold function
+  actions handleRaiseAllInOrFold(Player &player, bool isYou, money totalRaise,
+                                 money &pot, money &highestBettedInRound) {
+    if (isYou) {
+      // Handle human player's decision
+      return handleHumanFoldOrAllIn(player, totalRaise, pot,
+                                    highestBettedInRound);
+    } else {
+      // Handle bot player's decision
+      return handleBotFoldOrAllIn(player, pot, highestBettedInRound);
+    }
+  }
+
+  actions handleRaise(Player &player, bool isYou, money &pot,
+                      money &highestBettedInRound) {
+    money raiseAmount = promptRaiseAmount(player, isYou);
+    money totalRaise =
+        (highestBettedInRound - player.getCurrentBet()) + raiseAmount;
+
+    // If totalRaise is more than player’s chips => fold or all-in
+    if (totalRaise > player.getChips()) {
+      return handleRaiseAllInOrFold(player, isYou, totalRaise, pot,
+                                    highestBettedInRound);
+    }
+
+    // Otherwise, proceed with the normal raise flow
+    pot += player.bet(totalRaise);
+    std::cout << "[" << player.getName() << "] raises " << raiseAmount << ".\n";
+    if (totalRaise > highestBettedInRound) {
+      highestBettedInRound = totalRaise;
+    }
+    return actions::raise;
+  }
+
+  actions handleAllIn(Player &player, money &pot, money &highestBettedInRound) {
+    money allinAmount = player.getChips();
+
+    // Player bets all they have into the pot
+    pot += player.bet(allinAmount);
+
+    std::cout << "[" << player.getName() << "] goes ALL-IN with " << allinAmount
+              << " chips.\n";
+
+    if (allinAmount > highestBettedInRound) {
+      highestBettedInRound = allinAmount;
+    }
+
+    return actions::allIn;
+  }
+
+  actions action(Player &player, position pos, bool isYou, money &pot,
+                 money &highestBettedInRound) {
+    printCommunityCards();
+
+    // Distinguish user vs. bot logic to get the option
+    int option = isYou ? getUserOption(player) : getBotOption(player, pos);
+
+    switch (option) {
+    case 1: // Fold
+      return handleFold(player);
+
+    case 2: // Check
+      return handleCheck(player, pos, isYou);
+
+    case 3: // Call
+      // handleCall version you already fixed to match the switch logic
+      return handleCall(player, isYou, pot, highestBettedInRound);
 
     case 4: // Raise
-    {
-      std::cout << "[" << player.getName() << "] Raise amount?\n> ";
-      int raiseAmount = 0;
-      if (!isYou) {
-        // Simple bot logic
-        raiseAmount = 10 + (rand() % 20);
-        std::cout << raiseAmount << "\n";
-      } else {
-        std::cin >> raiseAmount;
-        if (std::cin.fail() || raiseAmount < 1) {
-          std::cin.clear();
-          std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-          std::cout << "Invalid raise. Defaulting to 1.\n";
-          raiseAmount = 1;
-        }
-      }
-
-      // totalRaise = how many more chips beyond player's current bet
-      money totalRaise =
-          (highestBettedInRound - player.getCurrentBet()) + raiseAmount;
-
-      // If totalRaise is more than player has, fold or all-in
-      if (totalRaise > player.getChips()) {
-        if (isYou) {
-          while (true) {
-            std::cout << "You only have " << player.getChips()
-                      << " chips, but total raise would be " << totalRaise
-                      << ".\nPick action:\n"
-                      << "1. Fold\n"
-                      << "2. Go All-In\n> ";
-            int choice;
-            std::cin >> choice;
-            if (std::cin.fail()) {
-              std::cin.clear();
-              std::cin.ignore(std::numeric_limits<std::streamsize>::max(),
-                              '\n');
-              std::cout << "Invalid input.\n";
-              continue;
-            }
-
-            if (choice == 1) {
-              player.fold();
-              std::cout << "[" << player.getName() << "] folds.\n";
-              return actions::fold;
-            } else if (choice == 2) {
-              money allin = player.getChips();
-              pot += player.bet(allin);
-              std::cout << "[" << player.getName() << "] goes ALL-IN with "
-                        << allin << " chips.\n";
-              if (allin > highestBettedInRound) {
-                highestBettedInRound = allin;
-              }
-              return actions::allIn;
-            } else {
-              std::cout << "Invalid choice. Please try again.\n";
-            }
-          }
-        } else {
-          // Bot logic: 50/50 fold or all-in
-          bool doAllIn = (rand() % 2 == 0);
-          if (doAllIn) {
-            money allin = player.getChips();
-            pot += player.bet(allin);
-            std::cout << "[" << player.getName() << "] goes ALL-IN with "
-                      << allin << " chips.\n";
-            if (allin > highestBettedInRound) {
-              highestBettedInRound = allin;
-            }
-            return actions::allIn;
-          } else {
-            player.fold();
-            std::cout << "[" << player.getName() << "] folds.\n";
-            return actions::fold;
-          }
-        }
-      }
-
-      // Otherwise, they can afford the raise
-      pot += player.raise(highestBettedInRound, raiseAmount);
-      highestBettedInRound += raiseAmount;
-      std::cout << "[" << player.getName() << "] raises by " << raiseAmount
-                << ". New highest bet: " << highestBettedInRound << "\n";
-      return actions::raise;
-    }
+      return handleRaise(player, isYou, pot, highestBettedInRound);
 
     case 5: // All-In
-    {
-      money allinAmount = player.getChips();
-      pot += player.bet(allinAmount);
-      std::cout << "[" << player.getName() << "] goes ALL-IN with "
-                << allinAmount << " chips.\n";
-      if (allinAmount > highestBettedInRound) {
-        highestBettedInRound = allinAmount;
-      }
-      return actions::allIn;
-    }
+      return handleAllIn(player, pot, highestBettedInRound);
+
     default:
-      // Default: fold
+      // Default to fold if something weird happens
       std::cout << "[" << player.getName() << "] folds by default.\n";
       player.fold();
       return actions::fold;
@@ -468,7 +534,7 @@ private:
       }
       std::cout << "Pot: " << pot << std::endl;
       bool isYou = (currentPlayer.getName() == "You");
-      act = action(currentPlayer, pos, isYou);
+      act = action(currentPlayer, pos, isYou, pot, highestBettedInRound);
 
       if (act == actions::raise || act == actions::allIn) {
         actionInitiator = pos;
@@ -521,6 +587,8 @@ public:
     }
   }
 
+  vector<Card> getCommunityCards() { return communityCards; }
+
   void startGame() {
     int config;
     std::cout << "Enter configuration for the game. 0: default, 1: custom\n";
@@ -532,15 +600,16 @@ public:
     }
   }
 
-  void printGameProperties() {
+  void debugAll() {
+    std::cout << "Active players: " << countActivePlayers() << "\n";
+    printGameState(state);
     std::cout << "Pot: " << pot << "\n"
               << "Player size: " << playerSize << "\n"
               << "Min bet: " << minimumBet << "\n";
   }
 
   bool playStage() {
-    std::cout << "Active players " << countActivePlayers() << std::endl;
-    printGameState(state);
+    debugAll();
     dealCards();
     letPlayerstakeAction();
     // If only one player remains, winner is decided
