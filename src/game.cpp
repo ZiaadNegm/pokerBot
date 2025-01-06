@@ -587,7 +587,7 @@ public:
     }
   }
 
-  vector<Card> getCommunityCards() { return communityCards; }
+  std::vector<Card> getCommunityCards() { return communityCards; }
 
   void startGame() {
     int config;
