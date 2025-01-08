@@ -15,6 +15,7 @@ target_sources(cards
         FILE_SET CXX_MODULES FILES
             src/cards.cppm
             src/player.cppm
+            src/bestHand.cppm
     PRIVATE
         src/game.cpp
 )

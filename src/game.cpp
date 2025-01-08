@@ -2,15 +2,14 @@
 #include <cstdint>
 #include <deque>
 #include <iostream>
-#include <map>
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
-#include <system_error>
 #include <unordered_map>
 #include <vector>
 import cards;
 import player;
+import bestHand;
 
 // Shorter aliases
 using money = std::uint32_t;
@@ -30,7 +29,7 @@ constexpr money STARTING_CHIPS = 100;
 } // namespace poker
 
 // Enums
-enum class actions { fold, check, call, raise, allIn };
+enum class actions { fold, check, call, raise, allIn, bet };
 enum class gameState { preFlop, flop, turn, river, showDown };
 
 struct Action {
@@ -88,9 +87,9 @@ private:
   }
 
   // Count how many players are still active (not folded)
-  int countActivePlayers() {
+  int countActivePlayers() const {
     int count = 0;
-    for (auto &p : PlayersTurn) {
+    for (const auto &p : PlayersTurn) {
       if (!p.hasPlayerFolded()) {
         count++;
       }
@@ -98,28 +97,89 @@ private:
     return count;
   }
 
-  void resetBlindsandSetBlinds() {
-    position posPreviousSmallBlind = (dealerPosition) % PlayersTurn.size();
-    position posPreviousBigBlind = (dealerPosition + 1) % PlayersTurn.size();
-    position nextBigBlind = (posPreviousBigBlind + 1) % PlayersTurn.size();
+  // Helper functions to handle blinds with insufficient chips
+  actions handleBlindBet(Player &player, money blindAmount, bool isYou) {
+    if (blindAmount > player.getChips()) {
+      if (isYou) {
+        // Handle human player's decision
+        while (true) {
+          std::cout << "You only have " << player.getChips()
+                    << " chips, but need " << blindAmount
+                    << " to post the blind.\nPick action:\n"
+                    << "1. Fold\n"
+                    << "2. Go All-In\n> ";
+          int choice;
+          std::cin >> choice;
 
-    PlayersTurn[posPreviousBigBlind].setBlind(Blind::smallBlind);
-    PlayersTurn[posPreviousSmallBlind].setBlind(Blind::notBlind);
-    PlayersTurn[nextBigBlind].setBlind(Blind::bigBlind);
+          if (std::cin.fail()) {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid input.\n";
+            continue;
+          }
 
-    SBIndex = posPreviousBigBlind;
-    BBIndex = nextBigBlind;
+          if (choice == 1) {
+            player.fold();
+            std::cout << "[" << player.getName() << "] folds.\n";
+            return actions::fold;
+          } else if (choice == 2) {
+            money allin = player.getChips();
+            pot += player.bet(allin);
+            std::cout << "[" << player.getName() << "] goes ALL-IN with "
+                      << allin << " chips.\n";
+            if (allin > highestBettedInRound) {
+              highestBettedInRound = allin;
+            }
+            return actions::allIn;
+          } else {
+            std::cout << "Invalid choice. Please try again.\n";
+          }
+        }
+      } else {
+        // Handle bot player's decision
+        bool doAllIn = (rand() % 2 == 0); // 50-50 chance
+        if (doAllIn) {
+          money allin = player.getChips();
+          pot += player.bet(allin);
+          std::cout << "[" << player.getName() << "] goes ALL-IN with " << allin
+                    << " chips as blind.\n";
+          if (allin > highestBettedInRound) {
+            highestBettedInRound = allin;
+          }
+          return actions::allIn;
+        } else {
+          player.fold();
+          std::cout << "[" << player.getName() << "] folds as blind.\n";
+          return actions::fold;
+        }
+      }
+    } else {
+      pot += player.bet(blindAmount);
+      std::cout << "[" << player.getName() << "] posts blind of " << blindAmount
+                << " chips.\n";
+      if (blindAmount > highestBettedInRound) {
+        highestBettedInRound = blindAmount;
+      }
+      return actions::bet;
+    }
   }
 
-  // Collect blinds
+  // Collect blinds with fold-or-all-in handling
   void collectBlindBets() {
     Player &SB = PlayersTurn[SBIndex];
     Player &BB = PlayersTurn[BBIndex];
 
-    SB.bet(minimumBet / 2);
-    BB.bet(minimumBet);
+    // Handle Small Blind
+    money sbAmount = minimumBet / 2;
+    bool isSBYou = (SB.getName() == "You");
+    actions sbAction = handleBlindBet(SB, sbAmount, isSBYou);
 
-    pot += static_cast<money>(1.5 * minimumBet);
+    // Handle Big Blind
+    money bbAmount = minimumBet;
+    bool isBBYou = (BB.getName() == "You");
+    actions bbAction = handleBlindBet(BB, bbAmount, isBBYou);
+
+    // No need to add to pot here as it's handled in handleBlindBet
   }
 
   void dealHoleCards() {
@@ -168,7 +228,7 @@ private:
     std::cout << "\n";
   }
 
-  void printGameState(gameState s) {
+  void printGameState(gameState s) const {
     switch (s) {
     case gameState::preFlop:
       std::cout << "Game State: preFlop\n";
@@ -190,6 +250,7 @@ private:
       break;
     }
   }
+
   int getUserOption(Player &player) {
     int option = 0;
     while (true) {
@@ -222,8 +283,7 @@ private:
   }
 
   // Helper function to execute Call action
-  actions executeCall(Player &player, money toCall, money &pot,
-                      money &highestBettedInRound) {
+  actions executeCall(Player &player, money toCall) {
     pot += player.bet(toCall);
     std::cout << "[" << player.getName() << "] calls " << toCall << " chips.\n";
     if (toCall > highestBettedInRound) {
@@ -233,8 +293,7 @@ private:
   }
 
   // Function to handle human player's decision to Fold or All-In when calling
-  actions handleHumanFoldOrAllInCall(Player &player, money toCall, money &pot,
-                                     money &highestBettedInRound) {
+  actions handleHumanFoldOrAllInCall(Player &player, money toCall) {
     while (true) {
       std::cout << "You only have " << player.getChips() << " chips, but need "
                 << toCall << " to call.\nPick action:\n"
@@ -255,7 +314,7 @@ private:
         std::cout << "[" << player.getName() << "] folds.\n";
         return actions::fold;
       } else if (choice == 2) {
-        return executeAllIn(player, pot, highestBettedInRound);
+        return executeAllIn(player);
       } else {
         std::cout << "Invalid choice. Please try again.\n";
       }
@@ -263,11 +322,10 @@ private:
   }
 
   // Function to handle bot player's decision to Fold or All-In when calling
-  actions handleBotFoldOrAllInCall(Player &player, money &pot,
-                                   money &highestBettedInRound) {
+  actions handleBotFoldOrAllInCall(Player &player) {
     bool doAllIn = (rand() % 2 == 0); // 50-50 chance
     if (doAllIn) {
-      return executeAllIn(player, pot, highestBettedInRound);
+      return executeAllIn(player);
     } else {
       player.fold();
       std::cout << "[" << player.getName() << "] folds.\n";
@@ -276,8 +334,7 @@ private:
   }
 
   // Refactored handleCall function
-  actions handleCall(Player &player, bool isYou, money &pot,
-                     money &highestBettedInRound) {
+  actions handleCall(Player &player, bool isYou) {
     money toCall = highestBettedInRound - player.getCurrentBet();
 
     // 1. If there's no extra to call:
@@ -292,19 +349,18 @@ private:
     if (toCall > player.getChips()) {
       if (isYou) {
         // Handle human player's decision
-        return handleHumanFoldOrAllInCall(player, toCall, pot,
-                                          highestBettedInRound);
+        return handleHumanFoldOrAllInCall(player, toCall);
       } else {
         // Handle bot player's decision
-        return handleBotFoldOrAllInCall(player, pot, highestBettedInRound);
+        return handleBotFoldOrAllInCall(player);
       }
     }
 
     // 3. Otherwise, the player can afford to call
-    return executeCall(player, toCall, pot, highestBettedInRound);
+    return executeCall(player, toCall);
   }
 
-  // Ensures that the player can't partake in any more rounds untill a new game
+  // Ensures that the player can't partake in any more rounds until a new game
   // is started.
   actions handleFold(Player &player) {
     player.fold();
@@ -322,7 +378,7 @@ private:
     } else { // This player must check.
       std::cout << "A bet has already been made. This player cannot check.\n";
       // Recursively call action again
-      return action(player, pos, isYou, pot, highestBettedInRound);
+      return action(player, pos, isYou);
     }
   }
 
@@ -346,21 +402,19 @@ private:
   }
 
   // Helper function to execute All-In action
-  actions executeAllIn(Player &player, money &pot,
-                       money &highestBettedInRound) {
-    money allin = player.getChips();
-    pot += player.bet(allin);
-    std::cout << "[" << player.getName() << "] goes ALL-IN with " << allin
+  actions executeAllIn(Player &player) {
+    money allinAmount = player.getChips();
+    pot += player.bet(allinAmount);
+    std::cout << "[" << player.getName() << "] goes ALL-IN with " << allinAmount
               << " chips.\n";
-    if (allin > highestBettedInRound) {
-      highestBettedInRound = allin;
+    if (allinAmount > highestBettedInRound) {
+      highestBettedInRound = allinAmount;
     }
     return actions::allIn;
   }
 
-  // Function to handle human player's decision to Fold or All-In
-  actions handleHumanFoldOrAllIn(Player &player, money totalRaise, money &pot,
-                                 money &highestBettedInRound) {
+  // Function to handle human player's decision to Fold or All-In when raising
+  actions handleHumanFoldOrAllInRaise(Player &player, money totalRaise) {
     while (true) {
       std::cout << "You only have " << player.getChips()
                 << " chips, but total raise would be " << totalRaise
@@ -382,19 +436,18 @@ private:
         std::cout << "[" << player.getName() << "] folds.\n";
         return actions::fold;
       } else if (choice == 2) {
-        return executeAllIn(player, pot, highestBettedInRound);
+        return executeAllIn(player);
       } else {
         std::cout << "Invalid choice. Please try again.\n";
       }
     }
   }
 
-  // Function to handle bot player's decision to Fold or All-In
-  actions handleBotFoldOrAllIn(Player &player, money &pot,
-                               money &highestBettedInRound) {
+  // Function to handle bot player's decision to Fold or All-In when raising
+  actions handleBotFoldOrAllInRaise(Player &player) {
     bool doAllIn = (rand() % 2 == 0); // 50-50 chance
     if (doAllIn) {
-      return executeAllIn(player, pot, highestBettedInRound);
+      return executeAllIn(player);
     } else {
       player.fold();
       std::cout << "[" << player.getName() << "] folds.\n";
@@ -402,58 +455,43 @@ private:
     }
   }
 
-  // Refactored handleRaiseAllInOrFold function
-  actions handleRaiseAllInOrFold(Player &player, bool isYou, money totalRaise,
-                                 money &pot, money &highestBettedInRound) {
-    if (isYou) {
-      // Handle human player's decision
-      return handleHumanFoldOrAllIn(player, totalRaise, pot,
-                                    highestBettedInRound);
-    } else {
-      // Handle bot player's decision
-      return handleBotFoldOrAllIn(player, pot, highestBettedInRound);
-    }
-  }
-
-  actions handleRaise(Player &player, bool isYou, money &pot,
-                      money &highestBettedInRound) {
+  // Refactored handleRaise function
+  actions handleRaise(Player &player, bool isYou) {
     money raiseAmount = promptRaiseAmount(player, isYou);
     money totalRaise =
         (highestBettedInRound - player.getCurrentBet()) + raiseAmount;
 
     // If totalRaise is more than player’s chips => fold or all-in
     if (totalRaise > player.getChips()) {
-      return handleRaiseAllInOrFold(player, isYou, totalRaise, pot,
-                                    highestBettedInRound);
+      if (isYou) {
+        // Handle human player's decision
+        return handleHumanFoldOrAllInRaise(player, totalRaise);
+      } else {
+        // Handle bot player's decision
+        return handleBotFoldOrAllInRaise(player);
+      }
     }
 
     // Otherwise, proceed with the normal raise flow
-    pot += player.bet(totalRaise);
-    std::cout << "[" << player.getName() << "] raises " << raiseAmount << ".\n";
-    if (totalRaise > highestBettedInRound) {
-      highestBettedInRound = totalRaise;
-    }
+    pot += player.raise(highestBettedInRound, raiseAmount);
+    std::cout << "[" << player.getName() << "] raises by " << raiseAmount
+              << ". New highest bet: " << (highestBettedInRound + raiseAmount)
+              << "\n";
+    highestBettedInRound += raiseAmount;
     return actions::raise;
   }
 
-  actions handleAllIn(Player &player, money &pot, money &highestBettedInRound) {
-    money allinAmount = player.getChips();
+  // Refactored handleAllIn function
+  actions handleAllIn(Player &player) { return executeAllIn(player); }
 
-    // Player bets all they have into the pot
-    pot += player.bet(allinAmount);
+  // Function to handle human player's decision to Fold or All-In when raising
+  // (already handled above)
 
-    std::cout << "[" << player.getName() << "] goes ALL-IN with " << allinAmount
-              << " chips.\n";
+  // Function to handle bot player's decision to Fold or All-In when raising
+  // (already handled above)
 
-    if (allinAmount > highestBettedInRound) {
-      highestBettedInRound = allinAmount;
-    }
-
-    return actions::allIn;
-  }
-
-  actions action(Player &player, position pos, bool isYou, money &pot,
-                 money &highestBettedInRound) {
+  // Refactored action function
+  actions action(Player &player, position pos, bool isYou) {
     printCommunityCards();
 
     // Distinguish user vs. bot logic to get the option
@@ -467,14 +505,13 @@ private:
       return handleCheck(player, pos, isYou);
 
     case 3: // Call
-      // handleCall version you already fixed to match the switch logic
-      return handleCall(player, isYou, pot, highestBettedInRound);
+      return handleCall(player, isYou);
 
     case 4: // Raise
-      return handleRaise(player, isYou, pot, highestBettedInRound);
+      return handleRaise(player, isYou);
 
     case 5: // All-In
-      return handleAllIn(player, pot, highestBettedInRound);
+      return handleAllIn(player);
 
     default:
       // Default to fold if something weird happens
@@ -506,14 +543,39 @@ private:
   void handleEarlyWinner() {
     givePotToLastStanding();
     resetCards();
-    dealerPosition = (dealerPosition + 1) % PlayersTurn.size();
   }
 
   void givePotToLastStandingOrShowdown() {
     if (countActivePlayers() == 1) {
       givePotToLastStanding();
     } else {
-      std::cout << "Showdown logic not implemented.\n";
+      try {
+        // Instantiate determineBestHand with current PlayersTurn and
+        // communityCards
+        determineBestHand bestHand(PlayersTurn, communityCards);
+
+        // Determine the winner
+        const Player *winner = bestHand.determineWinnerByHighestCard();
+
+        if (winner) {
+          // Find the corresponding player in PlayersTurn by unique ID
+          for (auto &p : PlayersTurn) {
+            if (p.getId() == winner->getId()) {
+              p.addChips(pot);
+              std::cout << "[" << p.getName() << "] wins the pot of " << pot
+                        << " chips with their highest card!\n";
+              break;
+            }
+          }
+          pot = 0;
+        } else {
+          std::cout << "No winner determined. Pot remains.\n";
+        }
+      } catch (const std::runtime_error &e) {
+        std::cerr << "Showdown Error: " << e.what() << "\n";
+        // Optionally, handle the error (e.g., distribute pot to all remaining
+        // players)
+      }
     }
   }
 
@@ -534,7 +596,7 @@ private:
       }
       std::cout << "Pot: " << pot << std::endl;
       bool isYou = (currentPlayer.getName() == "You");
-      act = action(currentPlayer, pos, isYou, pot, highestBettedInRound);
+      act = action(currentPlayer, pos, isYou);
 
       if (act == actions::raise || act == actions::allIn) {
         actionInitiator = pos;
@@ -587,7 +649,7 @@ public:
     }
   }
 
-  std::vector<Card> getCommunityCards() { return communityCards; }
+  std::vector<Card> getCommunityCards() const { return communityCards; }
 
   void startGame() {
     int config;
@@ -600,7 +662,7 @@ public:
     }
   }
 
-  void debugAll() {
+  void debugAll() const {
     std::cout << "Active players: " << countActivePlayers() << "\n";
     printGameState(state);
     std::cout << "Pot: " << pot << "\n"
@@ -619,6 +681,19 @@ public:
     }
     nextState();
     return false; // signals continue
+  }
+
+  void resetBlindsandSetBlinds() {
+    position posPreviousSmallBlind = (dealerPosition) % PlayersTurn.size();
+    position posPreviousBigBlind = (dealerPosition + 1) % PlayersTurn.size();
+    position nextBigBlind = (posPreviousBigBlind + 1) % PlayersTurn.size();
+
+    PlayersTurn[posPreviousBigBlind].setBlind(Blind::smallBlind);
+    PlayersTurn[posPreviousSmallBlind].setBlind(Blind::notBlind);
+    PlayersTurn[nextBigBlind].setBlind(Blind::bigBlind);
+
+    SBIndex = posPreviousBigBlind;
+    BBIndex = nextBigBlind;
   }
 
   void simulateRound() {
@@ -664,7 +739,7 @@ int main() {
   game.initalizePLayers();
 
   // Example: run 5 rounds
-  game.runMultipleGames(5);
+  game.runMultipleGames(2);
 
   return 0;
 }
