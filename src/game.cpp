@@ -52,6 +52,11 @@ public:
    */
   void performAction() {}
 
+  /* offers certain options to the player. The player gives his option as input.
+   * We return this input as a action type.
+   */
+  void getActionPlayer() {}
+
   /* Gets, validates and performs action
    * Possible input player?
    * Calls getNextPlayerInSequence()
