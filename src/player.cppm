@@ -54,11 +54,9 @@ private:
   bool hasFolded;
 
 public:
-  Player(std::string name, std::vector<Card> &&hand, money chips, Blind blind,
-         money currentBet = 0)
-      : id(getNextId()), name(name), hand(std::move(hand)), chips(chips),
-        currentBet(currentBet), canCheck(false), blind(blind),
-        hasFolded(false) {}
+  Player(std::string name)
+      : id(getNextId()), name(name), hand(), chips(0), currentBet(0),
+        canCheck(false), blind(Blind::notBlind), hasFolded(false) {}
 
   // Getters.
   static int getNextId() { return nextId++; }

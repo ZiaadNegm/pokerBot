@@ -1,6 +1,9 @@
+#include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <iostream>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <sys/types.h>
 #include <unordered_map>
@@ -12,6 +15,10 @@ using money = uint32_t;
 using playersPool = deque<shared_ptr<Player>>;
 using position = uint32_t;
 enum class actions { fold, check, call, raise, allIn, bet };
+
+vector<string> names("Ziaad", "Daaiz");
+
+enum class gameStates { preFlop, flop, turn, river, showDown };
 
 struct Action {
   actions action;
@@ -35,6 +42,13 @@ struct positions {
 };
 class Game {
 private:
+  money pot;
+  playersPool players;
+  Deck deck;
+  vector<Card> communityCards;
+  money highestBet;
+  gameStates gameState;
+
 public:
   /* Does the basic one time operations needed in a round.
    * Make the Blinds pay.
@@ -183,11 +197,33 @@ public:
 
   void log(const string &message) const { cout << message << endl; }
 
+  /* Error catching function (Later)
+   * When too few names provided, ask input to fill in missingAmount of names.
+   */
+  void addPlayerName(int missingAmount) {}
+
   /* Initalizes all players with their names and starting chips.
    * These players get allocated on the heap with shared pointers and pushed
    * onto the playersPool
    */
-  void initalizePLayers() {}
+  void initalizePLayers() {
+
+    if (names.size() < settings.minAmountPlayers) {
+      addPlayerName(names.size() - sett.minAmountPlayers);
+    }
+    for (int i = 0; i < 3; i++) {
+      shared_ptr<Player> p = make_shared<Player>(names[i]);
+      playersPool.emplace_back(p);
+    }
+  }
+
+  /* Return the special position by pointer.
+   */
+  shared_ptr<const positions> getSpecialPositions() {
+    return make_shared<positions>(positions);
+  }
+
+  size_t getCurrentRound() { return currentRound; }
 
   /* Will simulate k amount of hands by letting the Game class run the logic
    * behind that. Maybe a for loop for k amounts of reps, call
@@ -211,3 +247,5 @@ public:
    */
   void decidePlayersLifeCycle() {}
 };
+
+int main(void) { return 0; }
