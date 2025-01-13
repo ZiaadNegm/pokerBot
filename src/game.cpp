@@ -223,6 +223,10 @@ public:
    */
   void handleTooFewNamesProvided(int missingAmount) {}
 
+  /* Initalizes the SB BB and D positions. This can't be reduced to a default
+   * value init as in the begin of the game we might already have inactive
+   * players.
+   */
   void initalizeSpecialPositions() {
     position newDealerIndex = findNextValidPos(0);
     if (newDealerIndex == INVALID_POS) {
