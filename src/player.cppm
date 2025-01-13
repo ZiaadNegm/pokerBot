@@ -39,7 +39,7 @@ import cards;
 
 using money = std::uint32_t;
 
-export enum class Blind { bigBlind, smallBlind, notBlind, dealer };
+export enum class Blind { dealer, smallBlind, bigBlind, notBlind };
 
 export class Player {
 private:

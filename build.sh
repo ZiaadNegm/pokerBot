@@ -67,4 +67,11 @@ cmake --build .
 echo_msg "Running tests with CTest"
 ctest --verbose
 
+if [ -f "./poker_game" ]; then
+    echo_msg "Running poker_game"
+    ./poker_game
+else
+    echo_msg "poker_game executable not found"
+fi
+
 echo_msg "Build and test cycle completed successfully!"

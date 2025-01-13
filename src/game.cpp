@@ -1,3 +1,5 @@
+#include <assert.h>
+#include <climits>
 #include <cstdint>
 #include <deque>
 #include <iostream>
@@ -6,9 +8,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-// 3. Import Other Modules
 import player;
 import cards;
+#define INVALID_POS INT_MIN
 
 using money = std::uint32_t;
 using playersPool = std::deque<std::shared_ptr<Player>>;
@@ -37,8 +39,8 @@ struct gameSettings {
 
 struct positions {
   position dealerPosition = 0;
-  position posBB = 0;
-  position posSB = 0;
+  position posBB = 1;
+  position posSB = 2;
 };
 class Game {
 private:
@@ -176,6 +178,9 @@ public:
    */
   void decideWinner() {}
 };
+
+class ManagerTest;
+
 class Manager {
 private:
   Game game;                      //  The game containing all the core logic.
@@ -188,6 +193,18 @@ private:
   size_t currentRound;
   positions specialPositions; // struct containing position of BB SB and Dealer.
   bool gameActive;
+
+  friend class ManagerTest;
+
+  int activePlayers() {
+    int activeCount = 0;
+    for (auto &player : players) {
+      if (player->getIsActive()) {
+        activeCount++;
+      }
+    }
+    return activeCount;
+  }
 
 public:
   Manager()
@@ -206,6 +223,35 @@ public:
    */
   void handleTooFewNamesProvided(int missingAmount) {}
 
+  void initalizeSpecialPositions() {
+    position newDealerIndex = findNextValidPos(0);
+    if (newDealerIndex == INVALID_POS) {
+      handleTooFewPlayers();
+      return;
+    }
+
+    players[newDealerIndex]->setBlind(Blind::dealer);
+    specialPositions.dealerPosition = newDealerIndex;
+
+    position initialSBIndex = findNextValidPos(newDealerIndex + 1);
+    if (initialSBIndex == INVALID_POS) {
+      handleTooFewPlayers();
+      return;
+    }
+
+    players[initialSBIndex]->setBlind(Blind::smallBlind);
+    specialPositions.posSB = initialSBIndex;
+
+    position initialBBIndex = findNextValidPos(initialSBIndex + 1);
+    if (initialBBIndex == INVALID_POS) {
+      handleTooFewPlayers();
+      return;
+    }
+
+    players[initialBBIndex]->setBlind(Blind::bigBlind);
+    specialPositions.posBB = initialBBIndex;
+  }
+
   /* Initalizes all players with their names and starting chips.
    * These players get allocated on the heap with shared pointers and pushed
    * onto the playersPool
@@ -215,11 +261,12 @@ public:
     if (names.size() < settings.minAmountPlayers) {
       handleTooFewNamesProvided(names.size() - settings.minAmountPlayers);
     }
-    for (int i = 0; i < 3; i++) {
+    for (int i = 0; i < names.size() && i < settings.maxAmountPlayers; i++) {
       std::shared_ptr<Player> p =
           make_shared<Player>(names[i], settings.startingChips);
       players.emplace_back(p);
     }
+    initalizeSpecialPositions();
   }
 
   /* Return the special position by pointer.
@@ -240,6 +287,7 @@ public:
    * Indicates the end of the program.
    */
   void endGame() {}
+
   void keepTrackCurrentRound() {}
 
   /* Error catching function. We can't assign the same player to be a SB and a
@@ -248,37 +296,68 @@ public:
   void handleTooFewPlayers() {}
 
   position findNextValidPos(position start) {
-    while (!players[start]->getIsActive()) {
-      start = (start + 1) % players.size();
+    // Count active players
+    if (activePlayers() < 3) {
+      return INVALID_POS;
     }
-    return start;
+
+    start = start % players.size();
+    position initial = start;
+
+    do {
+      if (players[start] && players[start]->getIsActive()) {
+        return start;
+      }
+      start = (start + 1) % players.size();
+    } while (start != initial);
+
+    return INVALID_POS;
   }
 
   /* For a betRound, move the dealer button. This will indirectly move the SB
    * and BB
    */
   void arrangePlayersPosition() {
-
-    if (players.size() < 2) {
-      handleTooFewPlayers();
+    if (activePlayers() < 3) {
+      std::cout << "Not enough" << '\n';
+      return handleTooFewPlayers();
     }
 
-    players[specialPositions.dealerPosition]->setBlind(Blind::notBlind);
-    position newDealerIndex = findNextValidPos(specialPositions.dealerPosition);
-    players[newDealerIndex]->setBlind(Blind::dealer);
-    specialPositions.dealerPosition = newDealerIndex;
+    // Clear all blinds first
+    for (auto &player : players) {
+      player->setBlind(Blind::notBlind);
+    }
 
-    players[specialPositions.posBB]->setBlind(Blind::notBlind);
-    position newBBIndex = findNextValidPos(newDealerIndex);
-    players[newBBIndex]->setBlind(Blind::bigBlind);
+    // Set new positions with validation
+    position newDealerIndex = findNextValidPos(
+        (specialPositions.dealerPosition + 1) % players.size());
+    if (newDealerIndex == INVALID_POS) {
+      handleTooFewPlayers();
+      return;
+    }
+
+    position newSBIndex =
+        findNextValidPos((newDealerIndex + 1) % players.size());
+    if (newSBIndex == INVALID_POS || newSBIndex == newDealerIndex) {
+      handleTooFewPlayers();
+      return;
+    }
+
+    position newBBIndex = findNextValidPos((newSBIndex + 1) % players.size());
+    if (newBBIndex == INVALID_POS || newBBIndex == newDealerIndex ||
+        newBBIndex == newSBIndex) {
+      handleTooFewPlayers();
+      return;
+    }
+
+    // Set new positions and blinds
+    specialPositions.dealerPosition = newDealerIndex;
+    specialPositions.posSB = newSBIndex;
     specialPositions.posBB = newBBIndex;
 
-    players[specialPositions.posSB]->setBlind(Blind::notBlind);
-    position newSBIndex = findNextValidPos(newBBIndex);
+    players[newDealerIndex]->setBlind(Blind::dealer);
     players[newSBIndex]->setBlind(Blind::smallBlind);
-    specialPositions.posSB = newSBIndex;
-
-    return;
+    players[newBBIndex]->setBlind(Blind::bigBlind);
   }
 
   /* If a player has no chips more, remove them from the game as they can't do
@@ -289,9 +368,182 @@ public:
   void decidePlayersLifeCycle() {}
 };
 
-// Add main function to run tests
+class ManagerTest {
+public:
+  static void printBlindValues(const Manager &manager) {
+    std::cout << "Current blind values:\n";
+    for (size_t i = 0; i < manager.players.size(); i++) {
+      std::cout << "Player " << i << " (" << manager.names[i] << ") blind: "
+                << static_cast<int>(manager.players[i]->getBlind())
+                << " Active status " << manager.players[i]->getIsActive()
+                << "\n";
+    }
+    std::cout << std::endl;
+  }
+
+  /* Helper function to set player activity */
+  static void setPlayerActive(Manager &manager, size_t playerIndex,
+                              bool isActive) {
+    if (playerIndex < manager.players.size()) {
+      manager.players[playerIndex]->setIsActive(isActive);
+    }
+  }
+
+  /* Test Case 1: All Players Active */
+  static void testAllPlayersActive() {
+    std::cout << "Test Case 1: All Players Active\n";
+    Manager manager;
+
+    // Ensure all players are active
+    for (size_t i = 0; i < manager.players.size(); i++) {
+      manager.players[i]->setIsActive(true);
+    }
+
+    // Print blind values
+    std::cout << "After initialization:\n";
+    printBlindValues(manager);
+
+    // Verify initial positions
+    auto initialPos = manager.getSpecialPositions();
+    assert(manager.players[initialPos->dealerPosition]->getBlind() ==
+           Blind::dealer);
+    assert(manager.players[initialPos->posSB]->getBlind() == Blind::smallBlind);
+    assert(manager.players[initialPos->posBB]->getBlind() == Blind::bigBlind);
+
+    // Test rotation
+    manager.arrangePlayersPosition();
+
+    // Print blind values after rotation
+    std::cout << "After rotation:\n";
+    printBlindValues(manager);
+
+    // Verify rotated positions
+    auto newPos = manager.getSpecialPositions();
+    assert(newPos->dealerPosition == 1); // Should move to position 1
+    assert(newPos->posSB == 2);          // Should move to position 2
+    assert(newPos->posBB == 3);          // Should move to position 3
+
+    std::cout << "Test Case 1 Passed!\n\n";
+  }
+
+  /* Test Case 2: Some Players Inactive */
+  static void testSomePlayersInactive() {
+    std::cout << "Test Case 2: Some Players Inactive\n";
+    Manager manager;
+
+    // Initial blind assignment is already done in the Manager constructor via
+    // initalizeSpecialPositions()
+
+    // Print initial blind values
+    std::cout << "Initial blind assignment:\n";
+    printBlindValues(manager);
+
+    // 1. First Rotation: Rotate blinds once
+    manager.arrangePlayersPosition();
+    std::cout << "After first rotation:\n";
+    printBlindValues(manager);
+
+    // 2. Set players 1 and 3 as inactive
+    setPlayerActive(manager, 1, false); // Assuming player index 1 is "Doyle"
+    setPlayerActive(manager, 3, false); // Assuming player index 3 is "Chris"
+    std::cout << "After setting players 1 and 3 as inactive:\n";
+    printBlindValues(manager);
+
+    // 3. Second Rotation: Rotate blinds again
+    manager.arrangePlayersPosition();
+    std::cout << "After second rotation with some players inactive:\n";
+    printBlindValues(manager);
+
+    // 4. Verify rotated positions
+    auto newPos = manager.getSpecialPositions();
+    assert(newPos->dealerPosition == 2); // Should move to position 2 ("Daniel")
+    assert(newPos->posSB == 4);          // Should move to position 4 ("Johnny")
+    assert(newPos->posBB == 5);          // Should move to position 5 ("You")
+
+    std::cout << "Test Case 2 Passed!\n\n";
+  }
+
+  /* Test Case 3: Minimum Active Players (3 Players) */
+  static void testMinimumActivePlayers() {
+    std::cout << "Test Case 3: Minimum Active Players (2 Players)\n";
+    Manager manager;
+
+    // Set players 3, 4, 5 as inactive
+    for (size_t i = 3; i < manager.players.size(); i++) {
+      setPlayerActive(manager, i, false);
+    }
+
+    // Assign blinds based on current active players
+    manager.arrangePlayersPosition();
+
+    // Print blind values after blind assignment
+    std::cout << "After assigning blinds with minimum active players:\n";
+    printBlindValues(manager);
+
+    // Verify rotated positions
+    auto newPos = manager.getSpecialPositions();
+    assert(newPos->dealerPosition == 1); // Should move to position 1
+    assert(newPos->posSB == 2);          // Should move to position 0
+    assert(newPos->posBB == 0); // Should move to position 1 (Dealer also as BB)
+
+    std::cout << "Test Case 3 Passed!\n\n";
+  }
+
+  /* Test Case 4: Multiple Rotations */
+  static void testMultipleRotations() {
+    std::cout << "Test Case 4: Multiple Rotations\n";
+    Manager manager;
+
+    // Ensure all players are active initially
+    for (size_t i = 0; i < manager.players.size(); i++) {
+      manager.players[i]->setIsActive(true);
+    }
+
+    std::cout << "Initial setup:\n";
+    printBlindValues(manager);
+
+    // Perform multiple rotations and verify positions
+    for (int rotation = 1; rotation <= 3; rotation++) {
+      std::cout << "\nRotation " << rotation << ":\n";
+
+      manager.arrangePlayersPosition();
+      auto pos = manager.getSpecialPositions();
+
+      printBlindValues(manager);
+
+      // Verify blinds are assigned correctly
+      assert(manager.players[pos->dealerPosition]->getBlind() == Blind::dealer);
+      assert(manager.players[pos->posSB]->getBlind() == Blind::smallBlind);
+      assert(manager.players[pos->posBB]->getBlind() == Blind::bigBlind);
+
+      // Verify positions are different
+      assert(pos->dealerPosition != pos->posSB);
+      assert(pos->dealerPosition != pos->posBB);
+      assert(pos->posSB != pos->posBB);
+
+      // After second rotation, deactivate some players
+      if (rotation == 2) {
+        setPlayerActive(manager, 1, false);
+        setPlayerActive(manager, 3, false);
+        std::cout << "Deactivated players 1 and 3\n";
+      }
+    }
+
+    std::cout << "Test Case 4 Passed!\n\n";
+  }
+
+  // Update runAllTests
+  static void runAllTests() {
+    testAllPlayersActive();
+    testSomePlayersInactive();
+    testMinimumActivePlayers();
+    testMultipleRotations();
+    std::cout << "All ManagerTest cases passed successfully!\n";
+  }
+};
+
+// Update main function
 int main() {
-  std::cout << "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAI"
-            << "\n";
+  ManagerTest::runAllTests();
   return 0;
 }
