@@ -39,7 +39,7 @@ import cards;
 
 using money = std::uint32_t;
 
-export enum class Blind { bigBlind, smallBlind, notBlind };
+export enum class Blind { bigBlind, smallBlind, notBlind, dealer };
 
 export class Player {
 private:
@@ -52,11 +52,14 @@ private:
   bool canCheck;
   Blind blind;
   bool hasFolded;
+  bool isActive;
 
 public:
-  Player(std::string name)
-      : id(getNextId()), name(name), hand(), chips(0), currentBet(0),
-        canCheck(false), blind(Blind::notBlind), hasFolded(false) {}
+  Player(std::string name, money chips, Blind blind = Blind::notBlind,
+         money currentBet = 0, std::vector<Card> hand = {})
+      : id(getNextId()), name(name), hand(hand), chips(chips),
+        currentBet(currentBet), canCheck(false), blind(blind), hasFolded(false),
+        isActive(true) {}
 
   // Getters.
   static int getNextId() { return nextId++; }
@@ -67,10 +70,12 @@ public:
   money getCurrentBet() const { return currentBet; }
   bool canPlayerCheck() const { return canCheck; }
   Blind getBlind() const { return blind; }
+  bool getIsActive() const { return isActive; }
   bool hasPlayerFolded() const { return hasFolded; }
 
   // Setters.
   void setChips(money newChips) { chips = newChips; }
+  void setIsActive(bool activity) { isActive = activity; }
   void setCurrentBet(money newBet) { currentBet = newBet; }
   void setCanCheck(bool check) { canCheck = check; }
   void setBlind(Blind newBlind) { blind = newBlind; }

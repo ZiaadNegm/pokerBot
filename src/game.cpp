@@ -9,14 +9,16 @@
 #include <unordered_map>
 #include <vector>
 import player;
+import cards;
 
 using namespace std;
 using money = uint32_t;
 using playersPool = deque<shared_ptr<Player>>;
+using notActivePlayers = vector<shared_ptr<Player>>;
 using position = uint32_t;
 enum class actions { fold, check, call, raise, allIn, bet };
 
-vector<string> names("Ziaad", "Daaiz");
+vector<string> names = {"Ziaad", "Daaiz"};
 
 enum class gameStates { preFlop, flop, turn, river, showDown };
 
@@ -178,11 +180,13 @@ public:
 };
 class Manager {
 private:
-  Game game;              //  The game containing all the core logic.
-  gameSettings settings;  // a struct containing all default settings
-  vector<string> names;   // Default names for six players.
-  playersPool players;    // a deque with shared pointers to each player.
-  playersHistory History; // The history of each player.
+  Game game;             //  The game containing all the core logic.
+  gameSettings settings; // a struct containing all default settings
+  vector<string> names;  // Default names for six players.
+  playersPool players;   // a deque with shared pointers to each player.
+  notActivePlayers inActivePlayers; // All players who have 0 chips and cannot
+                                    // play anymore
+  playersHistory History;           // The history of each player.
   size_t currentRound;
   positions specialPositions; // struct containing position of BB SB and Dealer.
   bool gameActive;
@@ -197,10 +201,10 @@ public:
 
   void log(const string &message) const { cout << message << endl; }
 
-  /* Error catching function (Later)
+  /* Error catching function. (Later. For now names is a static defined array.)
    * When too few names provided, ask input to fill in missingAmount of names.
    */
-  void addPlayerName(int missingAmount) {}
+  void handleTooFewNamesProvided(int missingAmount) {}
 
   /* Initalizes all players with their names and starting chips.
    * These players get allocated on the heap with shared pointers and pushed
@@ -209,18 +213,19 @@ public:
   void initalizePLayers() {
 
     if (names.size() < settings.minAmountPlayers) {
-      addPlayerName(names.size() - sett.minAmountPlayers);
+      handleTooFewNamesProvided(names.size() - settings.minAmountPlayers);
     }
     for (int i = 0; i < 3; i++) {
-      shared_ptr<Player> p = make_shared<Player>(names[i]);
-      playersPool.emplace_back(p);
+      shared_ptr<Player> p =
+          make_shared<Player>(names[i], settings.startingChips);
+      players.emplace_back(p);
     }
   }
 
   /* Return the special position by pointer.
    */
   shared_ptr<const positions> getSpecialPositions() {
-    return make_shared<positions>(positions);
+    return make_shared<positions>(specialPositions);
   }
 
   size_t getCurrentRound() { return currentRound; }
@@ -237,13 +242,49 @@ public:
   void endGame() {}
   void keepTrackCurrentRound() {}
 
-  /* For a hand, move the dealer button. This will indirectly move the SB and BB
+  /* Error catching function. We can't assign the same player to be a SB and a
+   * BB. The game has to terminate as something clearly went wrong.
    */
-  void arrangePlayersPosition() {}
+  void handleTooFewPlayers() {}
+
+  position findNextValidPos(position start) {
+    while (!players[start]->getIsActive()) {
+      start = (start + 1) % players.size();
+    }
+    return start;
+  }
+
+  /* For a betRound, move the dealer button. This will indirectly move the SB
+   * and BB
+   */
+  void arrangePlayersPosition() {
+
+    if (players.size() < 2) {
+      handleTooFewPlayers();
+    }
+
+    players[specialPositions.dealerPosition]->setBlind(Blind::notBlind);
+    position newDealerIndex = findNextValidPos(specialPositions.dealerPosition);
+    players[newDealerIndex]->setBlind(Blind::dealer);
+    specialPositions.dealerPosition = newDealerIndex;
+
+    players[specialPositions.posBB]->setBlind(Blind::notBlind);
+    position newBBIndex = findNextValidPos(newDealerIndex);
+    players[newBBIndex]->setBlind(Blind::bigBlind);
+    specialPositions.posBB = newBBIndex;
+
+    players[specialPositions.posSB]->setBlind(Blind::notBlind);
+    position newSBIndex = findNextValidPos(newBBIndex);
+    players[newSBIndex]->setBlind(Blind::smallBlind);
+    specialPositions.posSB = newSBIndex;
+
+    return;
+  }
 
   /* If a player has no chips more, remove them from the game as they can't do
    * anyhting. This will ensure that no funny things happen when moving around
    * the dealersButton
+   * Remove them from the pool totally?
    */
   void decidePlayersLifeCycle() {}
 };

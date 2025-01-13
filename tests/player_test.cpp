@@ -20,8 +20,8 @@ protected:
 
   void SetUp() override {
     std::vector<Card> hand = mockHand();
-    p = std::make_unique<Player>("Alice", std::move(hand), 1000,
-                                 Blind::smallBlind, 50);
+    p = std::make_unique<Player>("Alice", 1000, Blind::smallBlind, 50,
+                                 std::move(hand));
   }
 };
 
@@ -156,12 +156,7 @@ TEST(PlayerTest, BasicTest) {
   std::vector<Card> hand;
   std::unique_ptr<Player> p;
 
-  p = std::make_unique<Player>("Alice",         // name
-                               std::move(hand), // hand
-                               1000,            // chips
-                               Blind::notBlind, // blind
-                               0                // currentBet (optional)
-  );
+  p = std::make_unique<Player>("Alice", 1000, Blind::notBlind);
 
   EXPECT_EQ(p->getName(), "Alice");
   EXPECT_EQ(p->getChips(), 1000);
