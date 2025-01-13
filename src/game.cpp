@@ -1,24 +1,22 @@
-#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <iostream>
 #include <memory>
-#include <stdexcept>
+#include <memory_resource>
 #include <string>
-#include <sys/types.h>
 #include <unordered_map>
 #include <vector>
+// 3. Import Other Modules
 import player;
 import cards;
 
-using namespace std;
-using money = uint32_t;
-using playersPool = deque<shared_ptr<Player>>;
-using notActivePlayers = vector<shared_ptr<Player>>;
-using position = uint32_t;
+using money = std::uint32_t;
+using playersPool = std::deque<std::shared_ptr<Player>>;
+using notActivePlayers = std::vector<std::shared_ptr<Player>>;
+using position = std::int32_t;
 enum class actions { fold, check, call, raise, allIn, bet };
 
-vector<string> names = {"Ziaad", "Daaiz"};
+std::vector<std::string> names = {"Ziaad", "Daaiz"};
 
 enum class gameStates { preFlop, flop, turn, river, showDown };
 
@@ -47,7 +45,7 @@ private:
   money pot;
   playersPool players;
   Deck deck;
-  vector<Card> communityCards;
+  std::vector<Card> communityCards;
   money highestBet;
   gameStates gameState;
 
@@ -180,10 +178,10 @@ public:
 };
 class Manager {
 private:
-  Game game;             //  The game containing all the core logic.
-  gameSettings settings; // a struct containing all default settings
-  vector<string> names;  // Default names for six players.
-  playersPool players;   // a deque with shared pointers to each player.
+  Game game;                      //  The game containing all the core logic.
+  gameSettings settings;          // a struct containing all default settings
+  std::vector<std::string> names; // Default names for six players.
+  playersPool players; // a deque with shared pointers to each player.
   notActivePlayers inActivePlayers; // All players who have 0 chips and cannot
                                     // play anymore
   playersHistory History;           // The history of each player.
@@ -199,7 +197,9 @@ public:
     startGame();
   }
 
-  void log(const string &message) const { cout << message << endl; }
+  void log(const std::string &message) const {
+    std::cout << message << std::endl;
+  }
 
   /* Error catching function. (Later. For now names is a static defined array.)
    * When too few names provided, ask input to fill in missingAmount of names.
@@ -216,7 +216,7 @@ public:
       handleTooFewNamesProvided(names.size() - settings.minAmountPlayers);
     }
     for (int i = 0; i < 3; i++) {
-      shared_ptr<Player> p =
+      std::shared_ptr<Player> p =
           make_shared<Player>(names[i], settings.startingChips);
       players.emplace_back(p);
     }
@@ -224,8 +224,8 @@ public:
 
   /* Return the special position by pointer.
    */
-  shared_ptr<const positions> getSpecialPositions() {
-    return make_shared<positions>(specialPositions);
+  std::shared_ptr<const positions> getSpecialPositions() {
+    return std::make_shared<positions>(specialPositions);
   }
 
   size_t getCurrentRound() { return currentRound; }
@@ -289,4 +289,9 @@ public:
   void decidePlayersLifeCycle() {}
 };
 
-int main(void) { return 0; }
+// Add main function to run tests
+int main() {
+  std::cout << "HAAAAAAAAAAAAAAAAAAAAAAAAAAAAI"
+            << "\n";
+  return 0;
+}

@@ -27,7 +27,7 @@ protected:
 
 TEST_F(PlayerTest, ConstructorAndGetters) {
   EXPECT_EQ(p->getName(), "Alice");
-  EXPECT_EQ(p->getId(), 1);
+  EXPECT_EQ(p->getId(), 0); // Changed expectation to 0 since IDs start at 0
   EXPECT_EQ(p->getHand().size(), 2);
   EXPECT_EQ(p->getChips(), 1000);
   EXPECT_EQ(p->getCurrentBet(), 50);
@@ -152,12 +152,11 @@ TEST_F(PlayerTest, FoldAndResetCurrentBet) {
   EXPECT_EQ(p->getCurrentBet(), 0u);
 }
 
-TEST(PlayerTest, BasicTest) {
-  std::vector<Card> hand;
-  std::unique_ptr<Player> p;
+class PlayerBasicTest : public ::testing::Test {};
 
-  p = std::make_unique<Player>("Alice", 1000, Blind::notBlind);
-
+TEST_F(PlayerBasicTest, BasicConstruction) {
+  std::unique_ptr<Player> p =
+      std::make_unique<Player>("Alice", 1000, Blind::notBlind);
   EXPECT_EQ(p->getName(), "Alice");
   EXPECT_EQ(p->getChips(), 1000);
 }

@@ -16,12 +16,13 @@ target_sources(cards
             src/cards.cppm
             src/player.cppm
             src/bestHand.cppm
+)
+
+add_executable(poker_game) 
+target_sources(poker_game
     PRIVATE
         src/game.cpp
 )
-
-
-add_executable(poker_game src/game.cpp)
 target_link_libraries(poker_game
     PRIVATE
         cards
