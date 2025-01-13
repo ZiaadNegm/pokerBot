@@ -5,6 +5,7 @@
 #include <iostream>
 #include <memory>
 #include <memory_resource>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -50,8 +51,12 @@ private:
   std::vector<Card> communityCards;
   money highestBet;
   gameStates gameState;
+  gameSettings settings;
 
 public:
+  Game(playersPool &players, gameSettings &settings)
+      : players(players), settings(settings), pot(0), highestBet(0), deck(),
+        communityCards({}), gameState(gameStates::preFlop), {}
   /* Does the basic one time operations needed in a round.
    * Make the Blinds pay.
    * Deal hole cards to players in the game.
@@ -285,7 +290,11 @@ public:
    * behind that. Maybe a for loop for k amounts of reps, call
    * game.simulateHand()? At the end set the gameActive variable to false?
    */
-  void startGame() {}
+  void startGame() {
+    for (int i = 0; i < settings.maximumRounds; i++) {
+      Game game(players, settings);
+    }
+  }
 
   /* Will print out all players with their chips etc.
    * Indicates the end of the program.
@@ -297,7 +306,9 @@ public:
   /* Error catching function. We can't assign the same player to be a SB and a
    * BB. The game has to terminate as something clearly went wrong.
    */
-  void handleTooFewPlayers() {}
+  void handleTooFewPlayers() {
+    throw std::runtime_error("Too few players to continue the game.");
+  }
 
   position findNextValidPos(position start) {
     // Count active players
@@ -323,7 +334,6 @@ public:
    */
   void arrangePlayersPosition() {
     if (activePlayers() < 3) {
-      std::cout << "Not enough" << '\n';
       return handleTooFewPlayers();
     }
 
