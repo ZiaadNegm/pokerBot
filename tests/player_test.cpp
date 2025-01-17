@@ -59,18 +59,30 @@ TEST_F(PlayerTest, SettersAndGetters) {
 }
 
 TEST_F(PlayerTest, ReceiveAndResetCards) {
-  // Original hand had 2 cards, let's set new cards
-  std::vector<Card> newHand;
-  newHand.emplace_back(Suit::Diamonds, Rank::Two);
-  newHand.emplace_back(Suit::Clubs, Rank::Three);
+    // Ensure hand is empty at start
+    p->resetCards();
+    EXPECT_TRUE(p->getHand().empty());
 
-  p->receiveCards(newHand);
-  EXPECT_EQ(p->getHand().size(), 2u);
-  EXPECT_EQ(p->getHand()[0].getRank(), Rank::Two);
-  EXPECT_EQ(p->getHand()[1].getRank(), Rank::Three);
+    // Add cards one at a time
+    Card card1(Suit::Diamonds, Rank::Two);
+    Card card2(Suit::Clubs, Rank::Three);
 
-  p->resetCards();
-  EXPECT_TRUE(p->getHand().empty());
+    p->receiveCards(card1);
+    EXPECT_EQ(p->getHand().size(), 1u);
+    
+    p->receiveCards(card2);
+    EXPECT_EQ(p->getHand().size(), 2u);
+
+    // Verify card contents
+    auto hand = p->getHand();
+    EXPECT_EQ(hand[0].getRank(), Rank::Two);
+    EXPECT_EQ(hand[0].getSuit(), Suit::Diamonds);
+    EXPECT_EQ(hand[1].getRank(), Rank::Three);
+    EXPECT_EQ(hand[1].getSuit(), Suit::Clubs);
+
+    // Test reset
+    p->resetCards();
+    EXPECT_TRUE(p->getHand().empty());
 }
 
 TEST_F(PlayerTest, AddAndDeductChips) {

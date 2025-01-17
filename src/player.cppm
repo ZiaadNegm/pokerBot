@@ -81,7 +81,7 @@ public:
   void setBlind(Blind newBlind) { blind = newBlind; }
   void setHasFolded(bool folded) { hasFolded = folded; }
 
-  void receiveCards(const std::vector<Card> &cards) { hand = cards; }
+  void receiveCards(Card card) { hand.emplace_back(card); }
 
   void resetCards() { hand.clear(); }
 

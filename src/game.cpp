@@ -1,7 +1,9 @@
+#include <algorithm>
 #include <assert.h>
 #include <climits>
 #include <cstdint>
 #include <deque>
+#include <iomanip>
 #include <iostream>
 #include <memory>
 #include <memory_resource>
@@ -12,6 +14,7 @@
 import player;
 import cards;
 #define INVALID_POS INT_MIN
+#define AMOUNT_OF_CARDS 2
 
 using money = std::uint32_t;
 using playersPool = std::deque<std::shared_ptr<Player>>;
@@ -52,16 +55,62 @@ private:
   money highestBet;
   gameStates gameState;
   gameSettings settings;
+  positions gamePositions;
+
+  void checkHoleCards() {
+    for (auto player : players) {
+      std::cout << "Player " << player->getName() << " Has the following cards"
+                << "\n";
+      for (Card card : player->getHand()) {
+        std::cout << " " << card.cardToString() << "\n";
+      }
+      std::cout << "\n";
+    }
+  }
 
 public:
-  Game(playersPool &players, gameSettings &settings)
-      : players(players), settings(settings), pot(0), highestBet(0), deck(),
-        communityCards({}), gameState(gameStates::preFlop), {}
-  /* Does the basic one time operations needed in a round.
-   * Make the Blinds pay.
-   * Deal hole cards to players in the game.
+  Game()
+      : pot(0), players(), deck(), communityCards(), highestBet(0),
+        gameState(gameStates::preFlop), settings(), gamePositions() {}
+
+  Game(playersPool &players, gameSettings &settings, const positions &pos)
+      : players(players), settings(settings), gamePositions(pos), pot(0),
+        highestBet(0), deck(), communityCards({}),
+        gameState(gameStates::preFlop) {}
+
+  /* The players folded property is set to true.
+   * The effects of this will be executed in other functions while the game is
+   * running.
    */
-  void standardStartRoundOperations() {}
+  void fold() {}
+
+  /* The player checks. We assume that the player can validly check, to ensure
+   * this, this must be checked in different parts of game.
+   */
+  void check() {}
+
+  /* The player matches his bet with the current highest bet.
+   * We assume here that the player has enough to call. This is left to other
+   * function that check this.
+   */
+  void call() {}
+
+  /* The player bets a amount which is greater than the current highest bet.
+   * We assume that this player can actually raise, we leave this to other
+   * functions.
+   */
+  void raise() {}
+
+  /* All remaining chips go to the pot
+   */
+  void allIn(std::shared_ptr<Player> &player) {}
+
+  /* This player bets x.
+   * We leave it to other functions to ensure that a player can only bet when no
+   * one has placed a bet in that round except the SB and BB. This is most
+   * likely the player after the SB.
+   */
+  void bet() {}
 
   /* Validates the given action for the player.
    * Possible input: action and player?
@@ -105,18 +154,32 @@ public:
    */
   void subRoundHandler() {}
 
+  /* Calls the players method resetHand to give a clean sheet for the next
+   * round.
+   */
+  void resetHand() {
+    for (auto &player : players) {
+      player->resetCards();
+    }
+    return;
+  }
+
   /* Will function as the entre point for a round.
    * Calls standardStartRoundOperations.
    * Calls subRoundHandler.
    * Give the pot to the winner.
    * Reset function? s.a cards cleaned up, folded status reset.
    */
-  void simulateHand() {}
+  void simulateHand() {
+    standardStartRoundOperations();
+    checkHoleCards();
+    resetHand();
+  }
 
   /* --Possible useless--
    * Keeps track of the Gamestatus
    */
-  void keepTrackGameStatus(){};
+  void keepTrackGameStatus() {}
 
   /* Decides which player plays next.
    * This should decide who the actionTaker is and check if we are already at
@@ -133,65 +196,60 @@ public:
 
   /* Deals 2 cards to every player who is active in this round
    */
-  void dealHoleCards() {}
+  void dealHoleCards() {
+    for (int i = 0; i < AMOUNT_OF_CARDS; i++) {
+      for (auto &player : players) {
+        if (player->getIsActive()) {
+          Card toBeDealt = deck.dealCard();
+          player->receiveCards(toBeDealt);
+        }
+      }
+    }
+    return;
+  }
 
   /* Depending on the game state, adds cards to communityCards.
    */
   void dealCommunityCards() {}
-
-  /* The players folded property is set to true.
-   * The effects of this will be executed in other functions while the game is
-   * running.
-   */
-  void fold() {}
-
-  /* The player checks. We assume that the player can validly check, to ensure
-   * this, this must be checked in different parts of game.
-   */
-  void check() {}
-
-  /* The player matches his bet with the current highest bet.
-   * We assume here that the player has enough to call. This is left to other
-   * function that check this.
-   */
-  void call() {}
-
-  /* The player bets a amount which is greater than the current highest bet.
-   * We assume that this player can actually raise, we leave this to other
-   * functions.
-   */
-  void raise() {}
-
-  /* All remaining chips go to the pot
-   */
-  void allIn() {}
-
-  /* This player bets x.
-   * We leave it to other functions to ensure that a player can only bet when no
-   * one has placed a bet in that round except the SB and BB. This is most
-   * likely the player after the SB.
-   */
-  void bet() {}
 
   /* Interface to manage the pot.
    * Input amount?
    */
   void managePot() {}
 
+  /* Does the basic one time operations needed in a round.
+   * Make the Blinds pay.
+   * Deal hole cards to players in the game.
+   */
+  void standardStartRoundOperations() {
+    auto &smallBlindPlayer = players[gamePositions.posSB];
+    auto &bigBlindPlayer = players[gamePositions.posBB];
+
+    if (smallBlindPlayer->getChips() < 0.5 * settings.minBet) {
+      allIn(smallBlindPlayer);
+    }
+    if (smallBlindPlayer->getChips() < settings.minBet) {
+      allIn(bigBlindPlayer);
+    }
+
+    dealHoleCards();
+
+    return;
+  }
+
   /* Uses the module bestHand to calculate who has the best hand.
    * Returns a pointer to the player?
    */
-  void decideWinner() {}
+  void decideWinner(){};
 };
 
 class ManagerTest;
 
 class Manager {
 private:
-  Game game;                      //  The game containing all the core logic.
-  gameSettings settings;          // a struct containing all default settings
-  std::vector<std::string> names; // Default names for six players.
-  playersPool players; // a deque with shared pointers to each player.
+  Game game;                        //  The game containing all the core logic.
+  gameSettings settings;            // a struct containing all default settings
+  std::vector<std::string> names;   // Default names for six players.
   notActivePlayers inActivePlayers; // All players who have 0 chips and cannot
                                     // play anymore
   playersHistory History;           // The history of each player.
@@ -212,19 +270,20 @@ private:
   }
 
 public:
+  playersPool players; // a deque with shared pointers to each player.
   Manager()
-      : names({"Phill", "Doyle", "Daniel", "Chris", "Johnny", "You"}),
+      : game(), names({"Phill", "Doyle", "Daniel", "Chris", "Johnny", "You"}),
         currentRound(0) {
     initalizePLayers();
-    startGame();
   }
 
   void log(const std::string &message) const {
     std::cout << message << std::endl;
   }
 
-  /* Error catching function. (Later. For now names is a static defined array.)
-   * When too few names provided, ask input to fill in missingAmount of names.
+  /* Error catching function. (Later. For now names is a static defined
+   * array.) When too few names provided, ask input to fill in missingAmount
+   * of names.
    */
   void handleTooFewNamesProvided(int missingAmount) {}
 
@@ -270,6 +329,7 @@ public:
     if (names.size() < settings.minAmountPlayers) {
       handleTooFewNamesProvided(names.size() - settings.minAmountPlayers);
     }
+
     for (int i = 0; i < names.size() && i < settings.maxAmountPlayers; i++) {
       std::shared_ptr<Player> p =
           make_shared<Player>(names[i], settings.startingChips);
@@ -286,22 +346,139 @@ public:
 
   size_t getCurrentRound() { return currentRound; }
 
+  /* Will print out the current round, name, chips, and activity status in a
+   * nice format.
+   */
+  void gameStatistics() {
+    std::cout << "==========================================" << std::endl;
+    std::cout << "           Poker Game Statistics          " << std::endl;
+    std::cout << "==========================================" << std::endl;
+    std::cout << "Current Round: " << currentRound << std::endl << std::endl;
+
+    // Print the header with fixed column widths
+    std::cout << std::left << std::setw(4) << "#" << std::setw(12) << "Name"
+              << std::setw(10) << "Chips" << std::setw(12) << "Blind"
+              << std::setw(10) << "Status" << std::endl;
+    std::cout << "------------------------------------------" << std::endl;
+
+    int playerNumber = 1;
+    for (const auto &player : players) {
+      std::string blindStatus = "None";
+      switch (player->getBlind()) {
+      case Blind::dealer:
+        blindStatus = "Dealer";
+        break;
+      case Blind::smallBlind:
+        blindStatus = "SmallBlind";
+        break;
+      case Blind::bigBlind:
+        blindStatus = "BigBlind";
+        break;
+      default:
+        break;
+      }
+
+      std::string status =
+          player->getIsActive()
+              ? "Active"
+              : (player->getChips() == 0 ? "Out of Chips" : "Inactive");
+
+      // Print player information with proper alignment
+      std::cout << std::left << std::setw(4) << playerNumber << std::setw(12)
+                << player->getName() << std::setw(10) << player->getChips()
+                << std::setw(12) << blindStatus << std::setw(10) << status
+                << std::endl;
+      playerNumber++;
+    }
+
+    std::cout << "------------------------------------------" << std::endl;
+  }
+
   /* Will simulate k amount of hands by letting the Game class run the logic
    * behind that. Maybe a for loop for k amounts of reps, call
    * game.simulateHand()? At the end set the gameActive variable to false?
    */
   void startGame() {
     for (int i = 0; i < settings.maximumRounds; i++) {
-      Game game(players, settings);
+      Game game(players, settings, specialPositions);
+      game.simulateHand();
+      decidePlayersLifeCycle();
+      arrangePlayersPosition();
+      gameStatistics();
     }
+
+    endGame();
   }
 
   /* Will print out all players with their chips etc.
    * Indicates the end of the program.
    */
-  void endGame() {}
+  void endGame() {
+    std::cout << "==========================================" << std::endl;
+    std::cout << "                Game Over                  " << std::endl;
+    std::cout << "==========================================" << std::endl;
+    std::cout << "Final Standings:" << std::endl;
 
-  void keepTrackCurrentRound() {}
+    std::cout << std::left << std::setw(4) << "#" << std::setw(15) << "Name"
+              << std::setw(10) << "Chips" << std::endl;
+    std::cout << "------------------------------------------" << std::endl;
+
+    // Convert deque to vector using vector's range constructor
+    std::vector<std::shared_ptr<Player>> sortedPlayers(players.begin(),
+                                                       players.end());
+
+    std::sort(sortedPlayers.begin(), sortedPlayers.end(),
+              [](const std::shared_ptr<Player> &a,
+                 const std::shared_ptr<Player> &b) -> bool {
+                return a->getChips() > b->getChips();
+              });
+
+    // Display each player's final chips
+    int rank = 1;
+    for (const auto &player : sortedPlayers) {
+      std::cout << std::left << std::setw(4) << rank << std::setw(15)
+                << player->getName() << std::setw(10) << player->getChips()
+                << std::endl;
+      rank++;
+    }
+
+    std::cout << "------------------------------------------" << std::endl;
+
+    // Identify the winner(s)
+    if (!sortedPlayers.empty()) {
+      money topChips = sortedPlayers.front()->getChips();
+      std::vector<std::string> winners;
+
+      for (const auto &player : sortedPlayers) {
+        if (player->getChips() == topChips && topChips > 0) {
+          winners.push_back(player->getName());
+        } else {
+          break;
+        }
+      }
+
+      // Announce the winner(s)
+      if (winners.size() == 1) {
+        std::cout << "Winner: " << winners.front() << " with " << topChips
+                  << " chips!" << std::endl;
+      } else if (winners.size() > 1) {
+        std::cout << "Winners: ";
+        for (size_t i = 0; i < winners.size(); ++i) {
+          std::cout << winners[i];
+          if (i < winners.size() - 1) {
+            std::cout << ", ";
+          }
+        }
+        std::cout << " each with " << topChips << " chips!" << std::endl;
+      } else {
+        std::cout << "No winners. All players are out of chips." << std::endl;
+      }
+    } else {
+      std::cout << "No players participated in the game." << std::endl;
+    }
+
+    std::cout << "==========================================" << std::endl;
+  }
 
   /* Error catching function. We can't assign the same player to be a SB and a
    * BB. The game has to terminate as something clearly went wrong.
@@ -376,14 +553,20 @@ public:
 
   /* If a player has no chips more, remove them from the game as they can't do
    * anyhting. This will ensure that no funny things happen when moving around
-   * the dealersButton
-   * Remove them from the pool totally?
+   * the dealersButton.
+   * We set the player to inActive.
    */
-  void decidePlayersLifeCycle() {}
+  void decidePlayersLifeCycle() {
+    for (auto &player : players) {
+      if (player->getChips() == 0) {
+        player->setIsActive(false);
+        log(player->getName() + "is out of chips and inactive. ");
+      }
+    }
+  }
 };
 
-class ManagerTest {
-public:
+struct ManagerTest {
   static void printBlindValues(const Manager &manager) {
     std::cout << "Current blind values:\n";
     for (size_t i = 0; i < manager.players.size(); i++) {
@@ -555,6 +738,8 @@ public:
     std::cout << "All ManagerTest cases passed successfully!\n";
   }
 };
+
+struct gameTest {};
 
 // Update main function
 int main() {
