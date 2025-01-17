@@ -3,6 +3,7 @@
 #include <climits>
 #include <cstdint>
 #include <deque>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <memory>
@@ -46,8 +47,12 @@ struct positions {
   position posBB = 1;
   position posSB = 2;
 };
+
+
+
 class Game {
 private:
+  using stateHandler = std::function<void(Game *)>;
   money pot;
   playersPool players;
   Deck deck;
@@ -56,6 +61,13 @@ private:
   gameStates gameState;
   gameSettings settings;
   positions gamePositions;
+    std::unordered_map<gameStates, stateHandler> stateToFunction = {
+        {gameStates::preFlop,  [](Game* g) { g->handlePreFlop(); }},
+        {gameStates::flop,     [](Game* g) { g->handleFlop(); }},
+        {gameStates::turn,     [](Game* g) { g->handleTurn(); }},
+        {gameStates::river,    [](Game* g) { g->handleRiver(); }},
+        {gameStates::showDown, [](Game* g) { g->handleShowDown(); }}
+    };
 
   void checkHoleCards() {
     for (auto player : players) {
@@ -66,6 +78,27 @@ private:
       }
       std::cout << "\n";
     }
+  }
+
+  int getActivePlayers(){
+    int activePlayers = 0;
+    for(auto& player : players){
+      if(player->getIsActive()){
+        activePlayers++;
+      }
+    }
+    return activePlayers;
+  }
+
+
+  int getNotFoldedPlayers(){
+    int AmountOfFoldedPlayers = 0;
+    for(auto& player : players){
+      if(player->getIsActive() && player->hasPlayerFolded()){
+        AmountOfFoldedPlayers++;
+      }
+    }
+    return getActivePlayers() - AmountOfFoldedPlayers;
   }
 
 public:
@@ -112,8 +145,30 @@ public:
    */
   void bet() {}
 
-  /* Validates the given action for the player.
-   * Possible input: action and player?
+  /* Decides which player plays next.
+   * This should decide who the actionTaker is and check if we are already at
+   * that actiontaker.
+   * Maybe return a pointer to the player who should play?
+   * If the returned pointer is NULL. There should be no next player.
+   * Note that this function relies on the caller to reset the actionTaker 
+   * when we did encounter a NULL return.
+   */
+  std::shared_ptr<Player> getNextPlayerInSequence(){};
+
+  void handlePreFlop(){
+    std::shared_ptr<Player> player;
+    while((player = getNextPlayerInSequence()) != nullptr){
+      allValidAction();
+    }
+  }
+
+
+  void handleFlop(){}
+  void handleTurn(){}
+  void handleRiver(){}
+  void handleShowDown(){}
+
+  /* Returns what the player can play, what is valid.
    */
   void allValidAction() {}
 
@@ -152,7 +207,14 @@ public:
    * performs these actions.
    * Maybe return a pointer to the winner?
    */
-  void subRoundHandler() {}
+  std::shared_ptr<Player> subRoundHandler() {
+
+    while(getNotFoldedPlayers() > 1){
+      auto handler = stateToFunction[gameState];
+      handler(this);
+    }
+    return decideWinner();
+  }
 
   /* Calls the players method resetHand to give a clean sheet for the next
    * round.
@@ -173,6 +235,7 @@ public:
   void simulateHand() {
     standardStartRoundOperations();
     checkHoleCards();
+    subRoundHandler();
     resetHand();
   }
 
@@ -181,12 +244,6 @@ public:
    */
   void keepTrackGameStatus() {}
 
-  /* Decides which player plays next.
-   * This should decide who the actionTaker is and check if we are already at
-   * that actiontaker.
-   * Maybe return a pointer to the player who should play?
-   */
-  void getNextPlayerInSequence(){};
 
   /* Decides whether a player should be excluded from this round.
    * For example player is out of chips or player has folded.
@@ -237,10 +294,23 @@ public:
     return;
   }
 
-  /* Uses the module bestHand to calculate who has the best hand.
-   * Returns a pointer to the player?
-   */
-  void decideWinner(){};
+  /* Calculates which player has the best hand. Sets all other playes
+  * besides this player to inactive.
+  * Does this with the help of the module bestHand.cppm
+  */
+  void calculateBesthand(){}
+
+
+  /* Returns the player who won the game. 
+   * This is thus the only player who hasn't been marked as folded.
+  */
+  std::shared_ptr<Player>& decideWinner(){
+    for(auto& player : players){
+      if(player->getIsActive() && !(player->hasPlayerFolded())){
+        return player;
+      }
+    }
+  }
 };
 
 class ManagerTest;
