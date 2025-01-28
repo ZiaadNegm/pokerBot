@@ -61,12 +61,19 @@ private:
   gameStates gameState;
   gameSettings settings;
   positions gamePositions;
-  std::unordered_map<gameStates, stateHandler> stateToFunction = {
-      {gameStates::preFlop, [](Game *g) { g->handlePreFlop(); }},
-      {gameStates::flop, [](Game *g) { g->handleFlop(); }},
-      {gameStates::turn, [](Game *g) { g->handleTurn(); }},
-      {gameStates::river, [](Game *g) { g->handleRiver(); }},
-      {gameStates::showDown, [](Game *g) { g->handleShowDown(); }}};
+
+  struct whoPlays {
+    position ActionTaker = positions.posSB;
+    position LastTurnPlayer = ActionTaker + 1;
+  }
+
+  std::unordered_map<gameStates, stateHandler>
+      stateToFunction = {
+          {gameStates::preFlop, [](Game *g) { g->handlePreFlop(); }},
+          {gameStates::flop, [](Game *g) { g->handleFlop(); }},
+          {gameStates::turn, [](Game *g) { g->handleTurn(); }},
+          {gameStates::river, [](Game *g) { g->handleRiver(); }},
+          {gameStates::showDown, [](Game *g) { g->handleShowDown(); }}};
 
   void checkHoleCards() {
     for (auto player : players) {
@@ -97,6 +104,17 @@ private:
       }
     }
     return getActivePlayers() - AmountOfFoldedPlayers;
+  }
+
+  /* Returns the player who is active and hasn't folded.
+   */
+  std::shared_ptr<Player> getNextActivePlayer() {
+    size_t pos = whoPlays.ActionTaker;
+    Player player = players[pos];
+    while (!player.getIsActive() || player.hasPlayerFolded()) {
+      pos = (pos + 1) % players.size();
+    }
+    return players[pos];
   }
 
 public:
@@ -151,8 +169,13 @@ public:
    * Note that this function relies on the caller to reset the actionTaker
    * when we did encounter a NULL return.
    */
-  std::shared_ptr<Player> getNextPlayerInSequence(){
-    
+  std::shared_ptr<Player> getNextPlayerInSequence() {
+
+    Player nextPlayer = getNextActivePlayer();
+    if (nextPlayer = players[whoPlays.actionTaker]) {
+      return NULL;
+    }
+    return nextPlayer;
   };
 
   /* This function handles the preflop round.
