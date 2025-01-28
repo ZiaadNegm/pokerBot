@@ -1,11 +1,13 @@
 #include <algorithm>
 #include <assert.h>
 #include <climits>
+#include <cstddef>
 #include <cstdint>
 #include <deque>
 #include <functional>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <memory>
 #include <memory_resource>
 #include <stdexcept>
@@ -48,8 +50,6 @@ struct positions {
   position posSB = 2;
 };
 
-
-
 class Game {
 private:
   using stateHandler = std::function<void(Game *)>;
@@ -61,13 +61,12 @@ private:
   gameStates gameState;
   gameSettings settings;
   positions gamePositions;
-    std::unordered_map<gameStates, stateHandler> stateToFunction = {
-        {gameStates::preFlop,  [](Game* g) { g->handlePreFlop(); }},
-        {gameStates::flop,     [](Game* g) { g->handleFlop(); }},
-        {gameStates::turn,     [](Game* g) { g->handleTurn(); }},
-        {gameStates::river,    [](Game* g) { g->handleRiver(); }},
-        {gameStates::showDown, [](Game* g) { g->handleShowDown(); }}
-    };
+  std::unordered_map<gameStates, stateHandler> stateToFunction = {
+      {gameStates::preFlop, [](Game *g) { g->handlePreFlop(); }},
+      {gameStates::flop, [](Game *g) { g->handleFlop(); }},
+      {gameStates::turn, [](Game *g) { g->handleTurn(); }},
+      {gameStates::river, [](Game *g) { g->handleRiver(); }},
+      {gameStates::showDown, [](Game *g) { g->handleShowDown(); }}};
 
   void checkHoleCards() {
     for (auto player : players) {
@@ -80,21 +79,20 @@ private:
     }
   }
 
-  int getActivePlayers(){
+  int getActivePlayers() {
     int activePlayers = 0;
-    for(auto& player : players){
-      if(player->getIsActive()){
+    for (auto &player : players) {
+      if (player->getIsActive()) {
         activePlayers++;
       }
     }
     return activePlayers;
   }
 
-
-  int getNotFoldedPlayers(){
+  int getNotFoldedPlayers() {
     int AmountOfFoldedPlayers = 0;
-    for(auto& player : players){
-      if(player->getIsActive() && player->hasPlayerFolded()){
+    for (auto &player : players) {
+      if (player->getIsActive() && player->hasPlayerFolded()) {
         AmountOfFoldedPlayers++;
       }
     }
@@ -150,27 +148,45 @@ public:
    * that actiontaker.
    * Maybe return a pointer to the player who should play?
    * If the returned pointer is NULL. There should be no next player.
-   * Note that this function relies on the caller to reset the actionTaker 
+   * Note that this function relies on the caller to reset the actionTaker
    * when we did encounter a NULL return.
    */
-  std::shared_ptr<Player> getNextPlayerInSequence(){};
+  std::shared_ptr<Player> getNextPlayerInSequence(){
+    
+  };
 
-  void handlePreFlop(){
+  /* This function handles the preflop round.
+   * We iterate over the players untill getNextPlayerInSequence determines that
+   * we can stop. For each player we get all valid actions from a helper
+   * function in the form of a map from a action to a bool and a amount.
+   * We then offer and execute the action.
+   */
+  void handlePreFlop() {
     std::shared_ptr<Player> player;
-    while((player = getNextPlayerInSequence()) != nullptr){
-      allValidAction();
+    while ((player = getNextPlayerInSequence()) != nullptr) {
+      allValidAction(player);
     }
   }
 
-
-  void handleFlop(){}
-  void handleTurn(){}
-  void handleRiver(){}
-  void handleShowDown(){}
+  void handleFlop() {}
+  void handleTurn() {}
+  void handleRiver() {}
+  void handleShowDown() {}
 
   /* Returns what the player can play, what is valid.
    */
-  void allValidAction() {}
+  void allValidAction(std::shared_ptr<Player> &player) {
+    std::map<actions, std::pair<bool, money>> validActionMap;
+    for (int i = 0; i <= static_cast<int>(actions::bet); i++) {
+      actions ActionEnum = static_cast<actions>(i);
+      validActionMap[ActionEnum] = std::make_pair(false, 0);
+    }
+    for (const auto &[key, value] : validActionMap) {
+      std::cout << "Action " << static_cast<int>(key) << "\npair: ("
+                << std::boolalpha << value.first << ", " << value.second
+                << ")\n";
+    }
+  }
 
   /* Actually calls the action for the player which is validated through the
    * function validateAction.
@@ -209,7 +225,7 @@ public:
    */
   std::shared_ptr<Player> subRoundHandler() {
 
-    while(getNotFoldedPlayers() > 1){
+    while (getNotFoldedPlayers() > 1) {
       auto handler = stateToFunction[gameState];
       handler(this);
     }
@@ -235,6 +251,8 @@ public:
   void simulateHand() {
     standardStartRoundOperations();
     checkHoleCards();
+    std::cout << "Finished checking HoleCards"
+              << "\n";
     subRoundHandler();
     resetHand();
   }
@@ -243,7 +261,6 @@ public:
    * Keeps track of the Gamestatus
    */
   void keepTrackGameStatus() {}
-
 
   /* Decides whether a player should be excluded from this round.
    * For example player is out of chips or player has folded.
@@ -295,18 +312,17 @@ public:
   }
 
   /* Calculates which player has the best hand. Sets all other playes
-  * besides this player to inactive.
-  * Does this with the help of the module bestHand.cppm
-  */
-  void calculateBesthand(){}
+   * besides this player to inactive.
+   * Does this with the help of the module bestHand.cppm
+   */
+  void calculateBesthand() {}
 
-
-  /* Returns the player who won the game. 
+  /* Returns the player who won the game.
    * This is thus the only player who hasn't been marked as folded.
-  */
-  std::shared_ptr<Player>& decideWinner(){
-    for(auto& player : players){
-      if(player->getIsActive() && !(player->hasPlayerFolded())){
+   */
+  std::shared_ptr<Player> &decideWinner() {
+    for (auto &player : players) {
+      if (player->getIsActive() && !(player->hasPlayerFolded())) {
         return player;
       }
     }
@@ -814,5 +830,7 @@ struct gameTest {};
 // Update main function
 int main() {
   ManagerTest::runAllTests();
+  Manager mng;
+  mng.startGame();
   return 0;
 }
