@@ -63,17 +63,16 @@ private:
   positions gamePositions;
 
   struct whoPlays {
-    position ActionTaker = positions.posSB;
-    position LastTurnPlayer = ActionTaker + 1;
-  }
+    position ActionTaker;
+    position LastTurnPlayer;
+  };
 
-  std::unordered_map<gameStates, stateHandler>
-      stateToFunction = {
-          {gameStates::preFlop, [](Game *g) { g->handlePreFlop(); }},
-          {gameStates::flop, [](Game *g) { g->handleFlop(); }},
-          {gameStates::turn, [](Game *g) { g->handleTurn(); }},
-          {gameStates::river, [](Game *g) { g->handleRiver(); }},
-          {gameStates::showDown, [](Game *g) { g->handleShowDown(); }}};
+  std::unordered_map<gameStates, stateHandler> stateToFunction = {
+      {gameStates::preFlop, [](Game *g) { g->handlePreFlop(); }},
+      {gameStates::flop, [](Game *g) { g->handleFlop(); }},
+      {gameStates::turn, [](Game *g) { g->handleTurn(); }},
+      {gameStates::river, [](Game *g) { g->handleRiver(); }},
+      {gameStates::showDown, [](Game *g) { g->handleShowDown(); }}};
 
   void checkHoleCards() {
     for (auto player : players) {
@@ -109,15 +108,16 @@ private:
   /* Returns the player who is active and hasn't folded.
    */
   std::shared_ptr<Player> getNextActivePlayer() {
-    size_t pos = whoPlays.ActionTaker;
-    Player player = players[pos];
-    while (!player.getIsActive() || player.hasPlayerFolded()) {
+    size_t pos = (currentPlays.LastTurnPlayer + 1) % players.size();
+    std::shared_ptr<Player> player = players[pos];
+    while (!player->getIsActive() || player->hasPlayerFolded()) {
       pos = (pos + 1) % players.size();
     }
     return players[pos];
   }
 
 public:
+  whoPlays currentPlays;
   Game()
       : pot(0), players(), deck(), communityCards(), highestBet(0),
         gameState(gameStates::preFlop), settings(), gamePositions() {}
@@ -125,7 +125,8 @@ public:
   Game(playersPool &players, gameSettings &settings, const positions &pos)
       : players(players), settings(settings), gamePositions(pos), pot(0),
         highestBet(0), deck(), communityCards({}),
-        gameState(gameStates::preFlop) {}
+        gameState(gameStates::preFlop),
+        currentPlays(gamePositions.posSB, gamePositions.posSB + 1) {}
 
   /* The players folded property is set to true.
    * The effects of this will be executed in other functions while the game is
@@ -171,8 +172,8 @@ public:
    */
   std::shared_ptr<Player> getNextPlayerInSequence() {
 
-    Player nextPlayer = getNextActivePlayer();
-    if (nextPlayer = players[whoPlays.actionTaker]) {
+    std::shared_ptr<Player> nextPlayer = getNextActivePlayer();
+    if (nextPlayer == (players[currentPlays.ActionTaker])) {
       return NULL;
     }
     return nextPlayer;
@@ -200,15 +201,18 @@ public:
    */
   void allValidAction(std::shared_ptr<Player> &player) {
     std::map<actions, std::pair<bool, money>> validActionMap;
+
     for (int i = 0; i <= static_cast<int>(actions::bet); i++) {
       actions ActionEnum = static_cast<actions>(i);
       validActionMap[ActionEnum] = std::make_pair(false, 0);
     }
+
     for (const auto &[key, value] : validActionMap) {
       std::cout << "Action " << static_cast<int>(key) << "\npair: ("
                 << std::boolalpha << value.first << ", " << value.second
                 << ")\n";
     }
+    std::cout << "The ActionTaker: " << currentPlays.ActionTaker << "\n";
   }
 
   /* Actually calls the action for the player which is validated through the
@@ -247,7 +251,6 @@ public:
    * Maybe return a pointer to the winner?
    */
   std::shared_ptr<Player> subRoundHandler() {
-
     while (getNotFoldedPlayers() > 1) {
       auto handler = stateToFunction[gameState];
       handler(this);
@@ -344,11 +347,14 @@ public:
    * This is thus the only player who hasn't been marked as folded.
    */
   std::shared_ptr<Player> &decideWinner() {
+    static std::shared_ptr<Player> nullPlayer = nullptr;
+
     for (auto &player : players) {
-      if (player->getIsActive() && !(player->hasPlayerFolded())) {
+      if (player->getIsActive() && !player->hasPlayerFolded()) {
         return player;
       }
     }
+    return nullPlayer;
   }
 };
 
@@ -356,7 +362,6 @@ class ManagerTest;
 
 class Manager {
 private:
-  Game game;                        //  The game containing all the core logic.
   gameSettings settings;            // a struct containing all default settings
   std::vector<std::string> names;   // Default names for six players.
   notActivePlayers inActivePlayers; // All players who have 0 chips and cannot
@@ -379,6 +384,7 @@ private:
   }
 
 public:
+  Game game;           //  The game containing all the core logic.
   playersPool players; // a deque with shared pointers to each player.
   Manager()
       : game(), names({"Phill", "Doyle", "Daniel", "Chris", "Johnny", "You"}),
@@ -848,12 +854,18 @@ struct ManagerTest {
   }
 };
 
-struct gameTest {};
+static int indexOfPlayer(const playersPool &pool,
+                         const std::shared_ptr<Player> &p) {
+  for (int i = 0; i < static_cast<int>(pool.size()); i++) {
+    if (pool[i] == p) {
+      return i;
+    }
+  }
+  return -1;
+}
 
 // Update main function
 int main() {
   ManagerTest::runAllTests();
-  Manager mng;
-  mng.startGame();
   return 0;
 }
