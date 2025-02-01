@@ -116,6 +116,16 @@ private:
     return players[pos];
   }
 
+  static int indexOfPlayer(const playersPool &pool,
+                           const std::shared_ptr<Player> &p) {
+    for (int i = 0; i < static_cast<int>(pool.size()); i++) {
+      if (pool[i] == p) {
+        return i;
+      }
+    }
+    return -1;
+  }
+
 public:
   whoPlays currentPlays;
   Game()
@@ -174,7 +184,7 @@ public:
 
     std::shared_ptr<Player> nextPlayer = getNextActivePlayer();
     if (nextPlayer == (players[currentPlays.ActionTaker])) {
-      return NULL;
+      return nullptr;
     }
     return nextPlayer;
   };
@@ -185,10 +195,13 @@ public:
    * function in the form of a map from a action to a bool and a amount.
    * We then offer and execute the action.
    */
+
+  // Note: We seem to stop at player = 0 while condition =  1;
   void handlePreFlop() {
     std::shared_ptr<Player> player;
     while ((player = getNextPlayerInSequence()) != nullptr) {
       allValidAction(player);
+      currentPlays.LastTurnPlayer = indexOfPlayer(players, player);
     }
   }
 
@@ -212,7 +225,8 @@ public:
                 << std::boolalpha << value.first << ", " << value.second
                 << ")\n";
     }
-    std::cout << "The ActionTaker: " << currentPlays.ActionTaker << "\n";
+    std::cout << "Player given: " << indexOfPlayer(players, player) << "\n";
+    std::cout << "Stop conditon " << currentPlays.ActionTaker << "\n";
   }
 
   /* Actually calls the action for the player which is validated through the
@@ -854,18 +868,10 @@ struct ManagerTest {
   }
 };
 
-static int indexOfPlayer(const playersPool &pool,
-                         const std::shared_ptr<Player> &p) {
-  for (int i = 0; i < static_cast<int>(pool.size()); i++) {
-    if (pool[i] == p) {
-      return i;
-    }
-  }
-  return -1;
-}
-
 // Update main function
 int main() {
   ManagerTest::runAllTests();
+  Manager mng;
+  mng.startGame();
   return 0;
 }
