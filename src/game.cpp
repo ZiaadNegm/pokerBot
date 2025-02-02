@@ -68,9 +68,9 @@ private:
   Deck deck;
   std::vector<Card> communityCards;
   money highestBet;
-  money raiseAmount;
   gameStates gameState;
   gameSettings settings;
+  money raiseAmount = settings.minBet;
   positions gamePositions;
   bool aBetHasBeenPlaced;
 
@@ -78,6 +78,36 @@ private:
     position ActionTaker;
     position LastTurnPlayer;
   };
+
+  // Define an alias for functions that handle actions.
+  using actionHandler =
+      std::function<void(Game *, std::shared_ptr<Player> &, Action)>;
+
+  std::unordered_map<actions, actionHandler> actionToFunction = {
+      {actions::fold,
+       static_cast<actionHandler>(
+           [this](Game *game, std::shared_ptr<Player> &player,
+                  Action action) -> void { this->fold(player, action); })},
+      {actions::check,
+       static_cast<actionHandler>(
+           [this](Game *game, std::shared_ptr<Player> &player,
+                  Action action) -> void { this->check(player, action); })},
+      {actions::call,
+       static_cast<actionHandler>(
+           [this](Game *game, std::shared_ptr<Player> &player,
+                  Action action) -> void { this->call(player, action); })},
+      {actions::raise,
+       static_cast<actionHandler>(
+           [this](Game *game, std::shared_ptr<Player> &player,
+                  Action action) -> void { this->raise(player, action); })},
+      {actions::allIn,
+       static_cast<actionHandler>(
+           [this](Game *game, std::shared_ptr<Player> &player,
+                  Action action) -> void { this->allIn(player, action); })},
+      {actions::bet,
+       static_cast<actionHandler>(
+           [this](Game *game, std::shared_ptr<Player> &player,
+                  Action action) -> void { this->bet(player, action); })}};
 
   std::unordered_map<gameStates, stateHandler> stateToFunction = {
       {gameStates::preFlop, [](Game *g) { g->handlePreFlop(); }},
@@ -167,35 +197,40 @@ public:
    * The effects of this will be executed in other functions while the game is
    * running.
    */
-  void fold() {}
+  void fold(std::shared_ptr<Player> &player, Action action) {
+    std::cout << "Folding \n";
+    if (aBetHasBeenPlaced) {
+      std::cout << "A bet has been placed\n";
+    }
+  }
 
   /* The player checks. We assume that the player can validly check, to ensure
    * this, this must be checked in different parts of game.
    */
-  void check() {}
+  void check(std::shared_ptr<Player> &player, Action action) {}
 
   /* The player matches his bet with the current highest bet.
    * We assume here that the player has enough to call. This is left to other
    * function that check this.
    */
-  void call() {}
+  void call(std::shared_ptr<Player> &player, Action action) {}
 
   /* The player bets a amount which is greater than the current highest bet.
    * We assume that this player can actually raise, we leave this to other
    * functions.
    */
-  void raise() {}
+  void raise(std::shared_ptr<Player> &player, Action action) {}
 
   /* All remaining chips go to the pot
    */
-  void allIn(std::shared_ptr<Player> &player) {}
+  void allIn(std::shared_ptr<Player> &player, Action action) {}
 
   /* This player bets x.
    * We leave it to other functions to ensure that a player can only bet when no
    * one has placed a bet in that round except the SB and BB. This is most
    * likely the player after the SB.
    */
-  void bet(std::shared_ptr<Player> &player) {}
+  void bet(std::shared_ptr<Player> &player, Action action) {}
 
   /* Decides which player plays next.
    * This should decide who the actionTaker is and check if we are already at
@@ -258,6 +293,8 @@ public:
       currentPlays.LastTurnPlayer = indexOfPlayer(players, player);
       actionMap validMoves = allValidAction(player);
       Action ActionToExecute = offerOptions(validMoves);
+      auto actionHandler = actionToFunction[ActionToExecute.action];
+      actionHandler(this, player, ActionToExecute);
     }
   }
 
@@ -411,15 +448,24 @@ public:
     auto &smallBlindPlayer = players[gamePositions.posSB];
     auto &bigBlindPlayer = players[gamePositions.posBB];
 
-    if (smallBlindPlayer->getChips() < 0.5 * settings.minBet) {
-      allIn(smallBlindPlayer);
+    if (smallBlindPlayer->getChips() <
+        static_cast<money>(0.5 * settings.minBet)) {
+      Action allInAction = {
+          actions::allIn, static_cast<money>(smallBlindPlayer->getChips()), 0};
+      allIn(smallBlindPlayer, allInAction);
     } else {
-      bet(smallBlindPlayer);
+      Action betAction = {actions::bet,
+                          static_cast<money>(settings.minBet * 0.5), 0};
+      bet(smallBlindPlayer, betAction);
     }
     if (smallBlindPlayer->getChips() < settings.minBet) {
-      allIn(bigBlindPlayer);
+      Action allInAction = {actions::allIn, bigBlindPlayer->getChips(), 0};
+      highestBet = bigBlindPlayer->getChips();
+      allIn(bigBlindPlayer, allInAction);
     } else {
-      bet(bigBlindPlayer);
+      Action betAction = {actions::bet, settings.minBet, 0};
+      highestBet = settings.minBet;
+      bet(bigBlindPlayer, betAction);
     }
 
     dealHoleCards();
