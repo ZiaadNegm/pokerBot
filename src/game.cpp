@@ -24,6 +24,15 @@ using playersPool = std::deque<std::shared_ptr<Player>>;
 using notActivePlayers = std::vector<std::shared_ptr<Player>>;
 using position = std::int32_t;
 enum class actions { fold, check, call, raise, allIn, bet };
+
+static const std::map<actions, std::string> actionmessages = {
+    {actions::fold, "Fold your hand"},
+    {actions::check, "Check and pass"},
+    {actions::call, "Call the current bet"},
+    {actions::raise, "Raise the stakes with atleast: "},
+    {actions::allIn, "Go all in with atleast: "},
+    {actions::bet, "Place a bet with atleast: "}};
+
 using actionMap = std::map<actions, std::pair<bool, money>>;
 
 std::vector<std::string> names = {"Ziaad", "Daaiz"};
@@ -205,6 +214,35 @@ public:
     return nextPlayer;
   };
 
+  Action offerOptions(actionMap validMoves) {
+    std::vector<actions> offeredOptions;
+    int optionCounter = 1;
+    for (const auto &[act, pr] : validMoves) {
+      if (pr.first) {
+        auto it = actionmessages.find(act);
+        std::string message =
+            (it != actionmessages.end()) ? it->second : "Unknown action";
+        std::cout << optionCounter << ": " << message
+                  << " (Amount: " << pr.second << ")\n";
+        offeredOptions.push_back(act);
+        optionCounter++;
+      }
+    }
+
+    std::cout << "Enter the number of your choice: ";
+    int choice = 0;
+    std::cin >> choice;
+
+    if (choice < 1 || choice > static_cast<int>(offeredOptions.size())) {
+      std::cout << "Invalid choice, defaulting to fold.\n";
+      return Action{actions::fold, 0, 0};
+    }
+
+    actions selected = offeredOptions[choice - 1];
+    money chosenAmount = validMoves[selected].second;
+    return Action{selected, chosenAmount, 0};
+  }
+
   /* This function handles the preflop round.
    * We iterate over the players untill getNextPlayerInSequence determines that
    * we can stop. For each player we get all valid actions from a helper
@@ -219,6 +257,7 @@ public:
     while ((player = getNextPlayerInSequence()) != nullptr) {
       currentPlays.LastTurnPlayer = indexOfPlayer(players, player);
       actionMap validMoves = allValidAction(player);
+      Action ActionToExecute = offerOptions(validMoves);
     }
   }
 
@@ -227,7 +266,9 @@ public:
   void handleRiver() {}
   void handleShowDown() {}
 
-  /* Returns what the player can play, what is valid.
+  /* Returns what the player can play, what is valid. This is done in the form
+   * of a map:
+   *  [action] -> {valid?, Amount}.
    */
   actionMap allValidAction(std::shared_ptr<Player> &player) {
     auto validActionMap = initializeValidActionMap(player);
