@@ -24,6 +24,7 @@ using playersPool = std::deque<std::shared_ptr<Player>>;
 using notActivePlayers = std::vector<std::shared_ptr<Player>>;
 using position = std::int32_t;
 enum class actions { fold, check, call, raise, allIn, bet };
+using actionMap = std::map<actions, std::pair<bool, money>>;
 
 std::vector<std::string> names = {"Ziaad", "Daaiz"};
 
@@ -58,9 +59,11 @@ private:
   Deck deck;
   std::vector<Card> communityCards;
   money highestBet;
+  money raiseAmount;
   gameStates gameState;
   gameSettings settings;
   positions gamePositions;
+  bool aBetHasBeenPlaced;
 
   struct whoPlays {
     position ActionTaker;
@@ -126,6 +129,19 @@ private:
     return -1;
   }
 
+  actionMap initializeValidActionMap(std::shared_ptr<Player> &player) {
+    actionMap validActionMap;
+    for (int i = 0; i <= static_cast<int>(actions::bet); i++) {
+      actions currentAction = static_cast<actions>(i);
+      validActionMap[currentAction] = std::make_pair(false, 0);
+    }
+    // Set Fold always valid with 0 money
+    validActionMap[actions::fold] = {true, 0};
+    // Set Allin valid with money equal to player's chips
+    validActionMap[actions::allIn] = {true, player->getChips()};
+    return validActionMap;
+  }
+
 public:
   whoPlays currentPlays;
   Game()
@@ -170,7 +186,7 @@ public:
    * one has placed a bet in that round except the SB and BB. This is most
    * likely the player after the SB.
    */
-  void bet() {}
+  void bet(std::shared_ptr<Player> &player) {}
 
   /* Decides which player plays next.
    * This should decide who the actionTaker is and check if we are already at
@@ -199,9 +215,10 @@ public:
   // Note: We seem to stop at player = 0 while condition =  1;
   void handlePreFlop() {
     std::shared_ptr<Player> player;
+    aBetHasBeenPlaced = true;
     while ((player = getNextPlayerInSequence()) != nullptr) {
-      allValidAction(player);
       currentPlays.LastTurnPlayer = indexOfPlayer(players, player);
+      actionMap validMoves = allValidAction(player);
     }
   }
 
@@ -212,21 +229,35 @@ public:
 
   /* Returns what the player can play, what is valid.
    */
-  void allValidAction(std::shared_ptr<Player> &player) {
-    std::map<actions, std::pair<bool, money>> validActionMap;
+  actionMap allValidAction(std::shared_ptr<Player> &player) {
+    auto validActionMap = initializeValidActionMap(player);
 
-    for (int i = 0; i <= static_cast<int>(actions::bet); i++) {
-      actions ActionEnum = static_cast<actions>(i);
-      validActionMap[ActionEnum] = std::make_pair(false, 0);
+    // can only check if a bet has been placed. in PR, always true.
+    if (!aBetHasBeenPlaced) {
+      validActionMap[actions::check] = {true, 0};
     }
 
-    for (const auto &[key, value] : validActionMap) {
-      std::cout << "Action " << static_cast<int>(key) << "\npair: ("
-                << std::boolalpha << value.first << ", " << value.second
-                << ")\n";
+    if ((aBetHasBeenPlaced) && ((player->getChips()) >= highestBet)) {
+      validActionMap[actions::call] = {true, highestBet};
     }
-    std::cout << "Player given: " << indexOfPlayer(players, player) << "\n";
-    std::cout << "Stop conditon " << currentPlays.ActionTaker << "\n";
+
+    if ((aBetHasBeenPlaced) &&
+        ((player->getChips()) >= raiseAmount + highestBet)) {
+      validActionMap[actions::raise] = {true, raiseAmount + highestBet};
+    }
+
+    if ((aBetHasBeenPlaced == false) &&
+        (player->getChips() >= settings.minBet)) {
+      validActionMap[actions::bet] = {true, settings.minBet};
+    }
+
+    std::cout << "\n";
+    for (const auto &[act, pr] : validActionMap) {
+      std::cout << "Action: " << static_cast<int>(act)
+                << " Valid: " << std::boolalpha << pr.first
+                << " Amount: " << pr.second << "\n";
+    }
+    return validActionMap;
   }
 
   /* Actually calls the action for the player which is validated through the
@@ -341,9 +372,13 @@ public:
 
     if (smallBlindPlayer->getChips() < 0.5 * settings.minBet) {
       allIn(smallBlindPlayer);
+    } else {
+      bet(smallBlindPlayer);
     }
     if (smallBlindPlayer->getChips() < settings.minBet) {
       allIn(bigBlindPlayer);
+    } else {
+      bet(bigBlindPlayer);
     }
 
     dealHoleCards();
