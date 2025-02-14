@@ -73,6 +73,7 @@ private:
   money raiseAmount = settings.minBet;
   positions gamePositions;
   bool aBetHasBeenPlaced;
+  size_t currentRound = 0;
 
   struct whoPlays {
     position ActionTaker;
@@ -197,40 +198,73 @@ public:
    * The effects of this will be executed in other functions while the game is
    * running.
    */
-  void fold(std::shared_ptr<Player> &player, Action action) {
-    std::cout << "Folding \n";
-    if (aBetHasBeenPlaced) {
-      std::cout << "A bet has been placed\n";
-    }
+  void fold(std::shared_ptr<Player> &player, Action folded) {
+    player->setHasFolded(true);
+    logActions(player, folded);
+    return;
   }
 
   /* The player checks. We assume that the player can validly check, to ensure
    * this, this must be checked in different parts of game.
    */
-  void check(std::shared_ptr<Player> &player, Action action) {}
+  void check(std::shared_ptr<Player> &player, Action checked) {
+    player->check();
+    logActions(player, checked);
+    return;
+  }
 
   /* The player matches his bet with the current highest bet.
    * We assume here that the player has enough to call. This is left to other
    * function that check this.
    */
-  void call(std::shared_ptr<Player> &player, Action action) {}
+  void call(std::shared_ptr<Player> &player, Action called) {
+    player->call(called.second);
+
+    pot += called.second;
+
+    logActions(player, called);
+    return
+  }
 
   /* The player bets a amount which is greater than the current highest bet.
    * We assume that this player can actually raise, we leave this to other
    * functions.
    */
-  void raise(std::shared_ptr<Player> &player, Action action) {}
+  void raise(std::shared_ptr<Player> &player, Action raised) {
+    player->raise(raised.second);
+
+    highestBet = raised.second;
+
+    pot += raised.second;
+
+    logActions(player, raised);
+    return;
+  }
 
   /* All remaining chips go to the pot
    */
-  void allIn(std::shared_ptr<Player> &player, Action action) {}
+  void allIn(std::shared_ptr<Player> &player, Action allIn) {
+    player->Allin(allIn.second);
+
+    pot += allIn.second;
+
+    logActions(player, allIn);
+    return;
+  }
 
   /* This player bets x.
    * We leave it to other functions to ensure that a player can only bet when no
    * one has placed a bet in that round except the SB and BB. This is most
    * likely the player after the SB.
    */
-  void bet(std::shared_ptr<Player> &player, Action action) {}
+  void bet(std::shared_ptr<Player> &player, Action action) {
+    player->bet(action.second);
+
+    pot += action.second;
+    aBetHasBeenPlaced = true;
+
+    logActions(player, action);
+  }
 
   /* Decides which player plays next.
    * This should decide who the actionTaker is and check if we are already at
@@ -264,6 +298,11 @@ public:
       }
     }
 
+    return getInputPlayer(offeredOptions, validMoves);
+  }
+
+  Action getInputPlayer(std::vector<actions> offeredOptions,
+                        actionMap validMoves) {
     std::cout << "Enter the number of your choice: ";
     int choice = 0;
     std::cin >> choice;
@@ -275,7 +314,38 @@ public:
 
     actions selected = offeredOptions[choice - 1];
     money chosenAmount = validMoves[selected].second;
-    return Action{selected, chosenAmount, 0};
+    return Action{selected, chosenAmount, currentRound};
+  }
+
+  void logActions(std::shared_ptr<Player> player, Action action) {
+    std::string playerName = player->getName();
+    switch (action.action) {
+    case actions::fold:
+      std::cout << "[" << playerName << "] folds.\n";
+      break;
+    case actions::check:
+      std::cout << "[" << playerName << "] checks.\n";
+      break;
+    case actions::call:
+      std::cout << "[" << playerName << "] calls with " << action.bet
+                << " chips.\n";
+      break;
+    case actions::raise:
+      std::cout << "[" << playerName << "] raises by " << action.bet
+                << " chips.\n";
+      break;
+    case actions::allIn:
+      std::cout << "[" << playerName << "] goes all-in with " << action.bet
+                << " chips.\n";
+      break;
+    case actions::bet:
+      std::cout << "[" << playerName << "] places a bet of " << action.bet
+                << " chips.\n";
+      break;
+    default:
+      std::cout << "[" << playerName << "] performs an unknown action.\n";
+      break;
+    }
   }
 
   /* This function handles the preflop round.
@@ -287,21 +357,24 @@ public:
 
   // Note: We seem to stop at player = 0 while condition =  1;
   void handlePreFlop() {
-    std::shared_ptr<Player> player;
     aBetHasBeenPlaced = true;
-    while ((player = getNextPlayerInSequence()) != nullptr) {
-      currentPlays.LastTurnPlayer = indexOfPlayer(players, player);
-      actionMap validMoves = allValidAction(player);
-      Action ActionToExecute = offerOptions(validMoves);
-      auto actionHandler = actionToFunction[ActionToExecute.action];
-      actionHandler(this, player, ActionToExecute);
-    }
+    letPlayerstakeAction();
+    return;
   }
 
-  void handleFlop() {}
-  void handleTurn() {}
-  void handleRiver() {}
-  void handleShowDown() {}
+  void handleFlop() {
+    dealCommunityCards();
+    letPlayerstakeAction();
+  }
+  void handleTurn() {
+    dealCommunityCards();
+    letPlayerstakeAction();
+  }
+  void handleRiver() {
+    dealCommunityCards();
+    letPlayerstakeAction();
+  }
+  void handleShowDown() { letPlayerstakeAction(); }
 
   /* Returns what the player can play, what is valid. This is done in the form
    * of a map:
@@ -339,14 +412,20 @@ public:
   }
 
   /* Actually calls the action for the player which is validated through the
-   * function validateAction.
+   * given input.
    */
-  void performAction() {}
+  void performAction(std::shared_ptr<Player> player, Action actionToExecute) {
+    auto actionHandler = actionToFunction[actionToExecute.action];
+    actionHandler(this, player, actionToExecute);
+  }
 
   /* offers certain options to the player. The player gives his option as input.
    * We return this input as a action type.
    */
-  void getActionPlayer() {}
+  Action getActionPlayer(std::shared_ptr<Player> player) {
+    actionMap validMoves = allValidAction(player);
+    return offerOptions(validMoves);
+  }
 
   /* Gets, validates and performs action
    * Possible input player?
@@ -358,7 +437,15 @@ public:
    * Maybe return a pointer to the winner?
    *
    */
-  void letPlayerstakeAction() {}
+  void letPlayerstakeAction() {
+    std::shared_ptr<Player> player;
+    currentRound++;
+    while ((player = getNextPlayerInSequence()) != nullptr) {
+      currentPlays.LastTurnPlayer = indexOfPlayer(players, player);
+      Action action = getActionPlayer(player);
+      performAction(player, action);
+    }
+  }
 
   /* Will walk through all gameStates and update these states.
    * The stop condition can be:
@@ -433,7 +520,21 @@ public:
 
   /* Depending on the game state, adds cards to communityCards.
    */
-  void dealCommunityCards() {}
+  void dealCommunityCards() {
+    int cardsTobeDealt = 1;
+    if (gameState == gameStates::flop) {
+      cardsTobeDealt = 3;
+    } else if (gameState == gameStates::preFlop) {
+      cardsTobeDealt = 0;
+    }
+
+    deck.burnCard();
+    for (int i = 0; i < cardsTobeDealt; i++) {
+      Card communityCard = deck.dealCard();
+      communityCards.push_back(communityCard);
+    }
+    return;
+  }
 
   /* Interface to manage the pot.
    * Input amount?
