@@ -16,6 +16,7 @@
 #include <vector>
 import player;
 import cards;
+
 import bestHand;
 #define INVALID_POS INT_MIN
 #define AMOUNT_OF_CARDS 2
