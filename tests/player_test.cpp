@@ -59,30 +59,30 @@ TEST_F(PlayerTest, SettersAndGetters) {
 }
 
 TEST_F(PlayerTest, ReceiveAndResetCards) {
-    // Ensure hand is empty at start
-    p->resetCards();
-    EXPECT_TRUE(p->getHand().empty());
+  // Ensure hand is empty at start
+  p->resetCards();
+  EXPECT_TRUE(p->getHand().empty());
 
-    // Add cards one at a time
-    Card card1(Suit::Diamonds, Rank::Two);
-    Card card2(Suit::Clubs, Rank::Three);
+  // Add cards one at a time
+  Card card1(Suit::Diamonds, Rank::Two);
+  Card card2(Suit::Clubs, Rank::Three);
 
-    p->receiveCards(card1);
-    EXPECT_EQ(p->getHand().size(), 1u);
-    
-    p->receiveCards(card2);
-    EXPECT_EQ(p->getHand().size(), 2u);
+  p->receiveCards(card1);
+  EXPECT_EQ(p->getHand().size(), 1u);
 
-    // Verify card contents
-    auto hand = p->getHand();
-    EXPECT_EQ(hand[0].getRank(), Rank::Two);
-    EXPECT_EQ(hand[0].getSuit(), Suit::Diamonds);
-    EXPECT_EQ(hand[1].getRank(), Rank::Three);
-    EXPECT_EQ(hand[1].getSuit(), Suit::Clubs);
+  p->receiveCards(card2);
+  EXPECT_EQ(p->getHand().size(), 2u);
 
-    // Test reset
-    p->resetCards();
-    EXPECT_TRUE(p->getHand().empty());
+  // Verify card contents
+  auto hand = p->getHand();
+  EXPECT_EQ(hand[0].getRank(), Rank::Two);
+  EXPECT_EQ(hand[0].getSuit(), Suit::Diamonds);
+  EXPECT_EQ(hand[1].getRank(), Rank::Three);
+  EXPECT_EQ(hand[1].getSuit(), Suit::Clubs);
+
+  // Test reset
+  p->resetCards();
+  EXPECT_TRUE(p->getHand().empty());
 }
 
 TEST_F(PlayerTest, AddAndDeductChips) {
@@ -127,13 +127,13 @@ TEST_F(PlayerTest, Raise) {
   // Suppose the global current bet is 200
   // A raise means we must at least call (200 - currentBet = 100) plus
   // raiseAmount Example: raise(200, 50) => totalRaise = 100 (call) + 50 = 150
-  int totalRaise = p->raise(200, 50);
+  int totalRaise = p->raise(250);
   EXPECT_EQ(totalRaise, 150);
   EXPECT_EQ(p->getChips(), 850u); // 1000 - 150
   EXPECT_EQ(p->getCurrentBet(), 250u);
 
   // Attempt a raise that exceeds chips
-  EXPECT_THROW(p->raise(1000, 2000), std::invalid_argument);
+  EXPECT_THROW(p->raise(3000), std::invalid_argument);
 }
 
 TEST_F(PlayerTest, Call) {

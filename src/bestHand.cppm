@@ -1,7 +1,8 @@
 module;
-#include <deque>
 #include <stdexcept> // for std::runtime_error
 #include <vector>
+
+#include <memory>
 
 export module bestHand;
 import player;
@@ -10,22 +11,25 @@ import cards;
 // Add 'export' keyword before the class declaration
 export class determineBestHand {
 private:
-  // Hold references to players and community cards to avoid copying
-  const std::deque<Player> &players;
+  // Store references to a vector of shared_ptr<Player> and the community cards.
+  const std::vector<std::shared_ptr<Player>> &players;
   const std::vector<Card> &communityCards;
 
-  // Return all players who haven't folded
-  std::vector<const Player *> DetermineActiveHands() const {
-    std::vector<const Player *> activePlayers;
-    for (const auto &p : players) { // Use const reference to avoid copying
-      if (!p.hasPlayerFolded()) {
-        activePlayers.emplace_back(&p); // Store pointers to avoid copying
+  // Return all players who haven't folded and are still active.
+  std::vector<std::shared_ptr<Player>> DetermineActiveHands() const {
+    std::vector<std::shared_ptr<Player>> activePlayers;
+    activePlayers.reserve(players.size());
+
+    for (auto &p : players) {
+      if (!p->hasPlayerFolded() && p->getIsActive()) {
+        activePlayers.push_back(p);
       }
     }
     return activePlayers;
   }
 
-  // Find the highest card rank among one player's 2-hole + 5-community
+  // Find the highest rank among one player's 2-hole cards + the community
+  // cards. For simplicity, we look only at the single highest card rank.
   int findHighestRank(const Player &player) const {
     int maxRankValue = 0;
 
@@ -44,25 +48,28 @@ private:
         maxRankValue = rankVal;
       }
     }
+
     return maxRankValue;
   }
 
 public:
-  // Constructor now takes references to players and community cards
-  determineBestHand(const std::deque<Player> &players_,
+  // Constructor now takes a reference to a vector of shared_ptr<Player> and a
+  // reference to community cards
+  determineBestHand(const std::vector<std::shared_ptr<Player>> &players_,
                     const std::vector<Card> &communityCards_)
       : players(players_), communityCards(communityCards_) {}
 
-  // Determine the winner by highest single card among active players
-  const Player *determineWinnerByHighestCard() const {
+  // Determine the winner by comparing only the highest single card among active
+  // players.
+  std::shared_ptr<Player> determineWinnerByHighestCard() const {
     // Gather players who haven't folded
-    std::vector<const Player *> activePlayers = DetermineActiveHands();
+    std::vector<std::shared_ptr<Player>> activePlayers = DetermineActiveHands();
     if (activePlayers.empty()) {
       throw std::runtime_error("No active players in the showdown.");
     }
 
     // Start with the first active player as "best"
-    const Player *bestPlayer = activePlayers[0];
+    std::shared_ptr<Player> bestPlayer = activePlayers[0];
     int bestRank = findHighestRank(*bestPlayer);
 
     // Compare all active players' highest card

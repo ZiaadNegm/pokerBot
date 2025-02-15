@@ -114,14 +114,29 @@ public:
   }
 
   // Raises the players currentBet with raiseAmount.
-  int raise(money globalCurrentBet, money raiseAmount) {
-    money totalRaise = (globalCurrentBet - currentBet) + raiseAmount;
-    if (totalRaise > chips) {
-      throw std::invalid_argument("Raise amount exceeds available chips");
+  int raise(money totalRaise) {
+    // Ensure the new total bet is greater than the current bet.
+    if (totalRaise <= currentBet) {
+      throw std::invalid_argument(
+          "New total bet must be greater than current bet.");
     }
-    deductChips(totalRaise);
-    currentBet += totalRaise;
-    return totalRaise;
+
+    // Calculate the additional amount to be paid.
+    money diff = totalRaise - currentBet;
+
+    // Check if the player has enough chips.
+    if (diff > chips) {
+      throw std::invalid_argument("Not enough chips to raise by that amount.");
+    }
+
+    // Deduct the additional chips.
+    chips -= diff;
+
+    // Update the player's current bet.
+    currentBet = totalRaise;
+
+    // Return the extra chips paid.
+    return diff;
   }
 
   // Does nothing.

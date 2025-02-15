@@ -16,6 +16,7 @@
 #include <vector>
 import player;
 import cards;
+import bestHand;
 #define INVALID_POS INT_MIN
 #define AMOUNT_OF_CARDS 2
 
@@ -51,13 +52,18 @@ struct gameSettings {
   size_t maxAmountPlayers = 6;
   money minBet = 10;
   money startingChips = 100;
-  size_t maximumRounds = 3;
+  size_t maximumRounds = 10;
 };
 
 struct positions {
   position dealerPosition = 0;
   position posBB = 1;
   position posSB = 2;
+};
+
+struct Pot {
+  money total;
+  std::vector<std::shared_ptr<Player>> contributors;
 };
 
 class Game {
@@ -182,6 +188,105 @@ private:
     return validActionMap;
   }
 
+  // 1. Helper to find the next active player after 'current'
+  std::shared_ptr<Player>
+  getNextActiveAfter(const std::shared_ptr<Player> &current) {
+    int idx = indexOfPlayer(players, current);
+    if (idx == -1)
+      return nullptr;
+
+    size_t nextPos = (idx + 1) % players.size();
+    auto candidate = players[nextPos];
+
+    // loop until we find an active, non-folded player or come full circle
+    while (!candidate->getIsActive() || candidate->hasPlayerFolded()) {
+      nextPos = (nextPos + 1) % players.size();
+      candidate = players[nextPos];
+      if (candidate == current) {
+        return nullptr;
+      }
+    }
+
+    if (candidate == current) {
+      return nullptr;
+    }
+
+    return candidate;
+  }
+
+  void showTurnInfo(const std::shared_ptr<Player> &currentPlayer) {
+    // Print the entire table first (so the user sees all players’ states)
+    std::cout << "\n\n";
+    printPlayersTable();
+
+    // Now show the current player's turn block
+    std::cout << "\n=============================================\n";
+    std::cout << "It's " << currentPlayer->getName() << "'s turn!\n";
+    std::cout << currentPlayer->getName() << " has "
+              << currentPlayer->getChips() << " chips.\n";
+
+    // Show hole cards
+    std::cout << "Hole Cards:\n";
+    for (const auto &card : currentPlayer->getHand()) {
+      std::cout << "  " << card.cardToString() << "\n";
+    }
+
+    // Who is next?
+    auto next = getNextActiveAfter(currentPlayer);
+    if (next && next != currentPlayer) {
+      std::cout << "Next to act: " << next->getName() << "\n";
+    } else {
+      std::cout << "No other active players.\n";
+    }
+
+    std::cout << "Highest bet so far: " << highestBet << "\n";
+    std::cout << "Pot: " << pot << "\n";
+
+    std::cout << "=============================================\n\n";
+  }
+
+  void printPlayersTable() {
+    // Print the header
+    std::cout << "#   Name        Chips     Blind       Status\n";
+    std::cout << "------------------------------------------\n";
+
+    int playerNumber = 1;
+    for (const auto &player : players) {
+      // Determine blind status as a string
+      std::string blindStatus;
+      switch (player->getBlind()) {
+      case Blind::dealer:
+        blindStatus = "Dealer";
+        break;
+      case Blind::smallBlind:
+        blindStatus = "SmallBlind";
+        break;
+      case Blind::bigBlind:
+        blindStatus = "BigBlind";
+        break;
+      default:
+        blindStatus = "None";
+        break;
+      }
+
+      // Determine status as a string
+      std::string status;
+      if (!player->getIsActive()) {
+        status = (player->getChips() == 0 ? "Out of Chips" : "Inactive");
+      } else {
+        status = (player->hasPlayerFolded() ? "Folded" : "Active");
+      }
+
+      // Print row
+      std::cout << std::left << std::setw(4) << playerNumber << std::setw(12)
+                << player->getName() << std::setw(10) << player->getChips()
+                << std::setw(12) << blindStatus << std::setw(10) << status
+                << std::endl;
+      playerNumber++;
+    }
+    std::cout << "------------------------------------------\n";
+  }
+
 public:
   whoPlays currentPlays;
   Game()
@@ -218,12 +323,12 @@ public:
    * function that check this.
    */
   void call(std::shared_ptr<Player> &player, Action called) {
-    player->call(called.second);
+    player->call(called.bet);
 
-    pot += called.second;
+    pot += called.bet;
 
     logActions(player, called);
-    return
+    return;
   }
 
   /* The player bets a amount which is greater than the current highest bet.
@@ -231,11 +336,11 @@ public:
    * functions.
    */
   void raise(std::shared_ptr<Player> &player, Action raised) {
-    player->raise(raised.second);
+    player->raise(raised.bet);
 
-    highestBet = raised.second;
+    highestBet = raised.bet;
 
-    pot += raised.second;
+    pot += raised.bet;
 
     logActions(player, raised);
     return;
@@ -244,9 +349,13 @@ public:
   /* All remaining chips go to the pot
    */
   void allIn(std::shared_ptr<Player> &player, Action allIn) {
-    player->Allin(allIn.second);
+    player->bet(allIn.bet);
 
-    pot += allIn.second;
+    pot += allIn.bet;
+
+    if (allIn.bet > highestBet) {
+      highestBet = allIn.bet;
+    }
 
     logActions(player, allIn);
     return;
@@ -258,9 +367,9 @@ public:
    * likely the player after the SB.
    */
   void bet(std::shared_ptr<Player> &player, Action action) {
-    player->bet(action.second);
+    player->bet(action.bet);
 
-    pot += action.second;
+    pot += action.bet;
     aBetHasBeenPlaced = true;
 
     logActions(player, action);
@@ -285,20 +394,45 @@ public:
 
   Action offerOptions(actionMap validMoves) {
     std::vector<actions> offeredOptions;
+    offeredOptions.reserve(validMoves.size());
+
+    std::cout << "Available actions:\n";
     int optionCounter = 1;
-    for (const auto &[act, pr] : validMoves) {
-      if (pr.first) {
+    for (const auto &[act, pairVal] : validMoves) {
+      if (pairVal.first) {
         auto it = actionmessages.find(act);
-        std::string message =
+        std::string actionText =
             (it != actionmessages.end()) ? it->second : "Unknown action";
-        std::cout << optionCounter << ": " << message
-                  << " (Amount: " << pr.second << ")\n";
+        std::cout << optionCounter << ") " << actionText
+                  << " [Amount: " << pairVal.second << "]\n";
         offeredOptions.push_back(act);
         optionCounter++;
       }
     }
 
     return getInputPlayer(offeredOptions, validMoves);
+  }
+
+  // Add helper function to prompt user for an amount for bet/raise actions.
+  money promptForActionAmount(actions act, money minAmount) {
+    std::string actionName = (act == actions::bet) ? "bet" : "raise";
+    std::cout << "You can " << actionName << " from " << minAmount
+              << " chips.\n";
+    std::cout << "How much would you like to " << actionName << "? ";
+
+    money inputAmount;
+    std::cin >> inputAmount;
+
+    while (std::cin.fail() || inputAmount < minAmount) {
+      std::cin.clear();
+      std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+      std::cout
+          << "Invalid amount. Please enter an amount greater than or equal to "
+          << minAmount << ": ";
+      std::cin >> inputAmount;
+    }
+
+    return inputAmount;
   }
 
   Action getInputPlayer(std::vector<actions> offeredOptions,
@@ -314,6 +448,12 @@ public:
 
     actions selected = offeredOptions[choice - 1];
     money chosenAmount = validMoves[selected].second;
+
+    // For bet and raise, allow custom amount input starting from the minimum.
+    if (selected == actions::bet || selected == actions::raise) {
+      chosenAmount = promptForActionAmount(selected, chosenAmount);
+    }
+
     return Action{selected, chosenAmount, currentRound};
   }
 
@@ -363,18 +503,29 @@ public:
   }
 
   void handleFlop() {
+    aBetHasBeenPlaced = false;
     dealCommunityCards();
     letPlayerstakeAction();
+    return;
   }
   void handleTurn() {
+    aBetHasBeenPlaced = false;
     dealCommunityCards();
     letPlayerstakeAction();
+    return;
   }
+
   void handleRiver() {
+    aBetHasBeenPlaced = false;
     dealCommunityCards();
     letPlayerstakeAction();
+    return;
   }
-  void handleShowDown() { letPlayerstakeAction(); }
+
+  void handleShowDown() {
+    calculateBesthand();
+    return;
+  }
 
   /* Returns what the player can play, what is valid. This is done in the form
    * of a map:
@@ -402,12 +553,12 @@ public:
       validActionMap[actions::bet] = {true, settings.minBet};
     }
 
-    std::cout << "\n";
-    for (const auto &[act, pr] : validActionMap) {
-      std::cout << "Action: " << static_cast<int>(act)
-                << " Valid: " << std::boolalpha << pr.first
-                << " Amount: " << pr.second << "\n";
-    }
+    // std::cout << "\n";
+    // for (const auto &[act, pr] : validActionMap) {
+    //   std::cout << "Action: " << static_cast<int>(act)
+    //             << " Valid: " << std::boolalpha << pr.first
+    //             << " Amount: " << pr.second << "\n";
+    // }
     return validActionMap;
   }
 
@@ -442,6 +593,7 @@ public:
     currentRound++;
     while ((player = getNextPlayerInSequence()) != nullptr) {
       currentPlays.LastTurnPlayer = indexOfPlayer(players, player);
+      showTurnInfo(player);
       Action action = getActionPlayer(player);
       performAction(player, action);
     }
@@ -464,6 +616,9 @@ public:
     while (getNotFoldedPlayers() > 1) {
       auto handler = stateToFunction[gameState];
       handler(this);
+      if (gameState != gameStates::showDown) {
+        gameState = static_cast<gameStates>(static_cast<int>(gameState) + 1);
+      }
     }
     return decideWinner();
   }
@@ -474,6 +629,7 @@ public:
   void resetHand() {
     for (auto &player : players) {
       player->resetCards();
+      player->setHasFolded(false);
     }
     return;
   }
@@ -492,11 +648,6 @@ public:
     subRoundHandler();
     resetHand();
   }
-
-  /* --Possible useless--
-   * Keeps track of the Gamestatus
-   */
-  void keepTrackGameStatus() {}
 
   /* Decides whether a player should be excluded from this round.
    * For example player is out of chips or player has folded.
@@ -536,11 +687,6 @@ public:
     return;
   }
 
-  /* Interface to manage the pot.
-   * Input amount?
-   */
-  void managePot() {}
-
   /* Does the basic one time operations needed in a round.
    * Make the Blinds pay.
    * Deal hole cards to players in the game.
@@ -578,7 +724,25 @@ public:
    * besides this player to inactive.
    * Does this with the help of the module bestHand.cppm
    */
-  void calculateBesthand() {}
+  void calculateBesthand() {
+    std::vector<std::shared_ptr<Player>> playerVector(players.begin(),
+                                                      players.end());
+
+    // 2. Create the determineBestHand object
+    determineBestHand bestHandCalculator(playerVector, communityCards);
+
+    // 3. Determine the winner
+    std::shared_ptr<Player> winner =
+        bestHandCalculator.determineWinnerByHighestCard();
+    std::cout << "The best hand winner is: " << winner->getName() << "\n";
+
+    // 4. Fold every other active player
+    for (auto &p : players) {
+      if (p != winner && p->getIsActive() && !p->hasPlayerFolded()) {
+        p->setHasFolded(true);
+      }
+    }
+  }
 
   /* Returns the player who won the game.
    * This is thus the only player who hasn't been marked as folded.
