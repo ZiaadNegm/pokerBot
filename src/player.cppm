@@ -115,11 +115,6 @@ public:
 
   // Raises the players currentBet with raiseAmount.
   int raise(money totalRaise) {
-    // Ensure the new total bet is greater than the current bet.
-    if (totalRaise <= currentBet) {
-      throw std::invalid_argument(
-          "New total bet must be greater than current bet.");
-    }
 
     // Calculate the additional amount to be paid.
     money diff = totalRaise - currentBet;
@@ -144,12 +139,9 @@ public:
 
   int call(int globalCurrentBet) {
     money toCall = globalCurrentBet - currentBet;
-    if (toCall > chips) {
-      toCall = chips;
-    }
-    deductChips(toCall);
-    currentBet += toCall; // Update player's current bet
-    return toCall;
+    deductChips(globalCurrentBet);
+    currentBet += globalCurrentBet; // Update player's current bet
+    return globalCurrentBet;
   }
 
   void fold() { hasFolded = true; }

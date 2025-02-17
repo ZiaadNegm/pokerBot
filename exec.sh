@@ -20,6 +20,15 @@ CLANGD_CACHE="$HOME/.cache/clangd/"
 echo_msg "Navigating to project directory: $PROJECT_DIR"
 cd "$PROJECT_DIR"
 
+# Check if -t flag was supplied to run tests
+RUN_TESTS=false
+for arg in "$@"; do
+  if [ "$arg" == "-t" ]; then
+    RUN_TESTS=true
+    break
+  fi
+done
+
 # Remove the build directory if it exists
 if [ -d "$BUILD_DIR" ]; then
     echo_msg "Removing existing build directory: $BUILD_DIR"
@@ -63,9 +72,13 @@ cmake -G Ninja \
 echo_msg "Building the project with Ninja"
 cmake --build .
 
-# Run tests with verbose output
-echo_msg "Running tests with CTest"
-ctest --verbose
+# Run tests if -t flag supplied
+if [ "$RUN_TESTS" = true ]; then
+    echo_msg "Running tests with CTest"
+    ctest --verbose
+else
+    echo_msg "Skipping tests (use -t flag to run tests)"
+fi
 
 if [ -f "./poker_game" ]; then
     echo_msg "Running poker_game"

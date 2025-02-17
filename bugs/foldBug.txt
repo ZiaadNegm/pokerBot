@@ -1,0 +1,137 @@
+When folding in this specific situation the game crashes.
+Does this has to do something with the position of the player in combination with folding?
+
+The same happens when folding in a Turn state.
+
+In all cases Left == Next player.
+
+Seems like the game crashes if this specific player chooses to fold, Why is this?
+
+
+=============================================
+
+It's Doyle's turn!
+
+Doyle has 85 chips.
+
+Game state: Turn
+Hole Cards:
+  King of Spades
+
+  Seven of Spades
+
+Next to act: Daniel
+
+Highest bet so far: 10
+
+Pot: 75
+
+=============================================
+
+
+Available actions:
+
+1) Fold your hand [Amount: 0]
+
+2) Check and pass [Amount: 0]
+
+3) Go all in with atleast:  [Amount: 85]
+
+4) Place a bet with atleast:  [Amount: 10]
+
+Enter the number of your choice: 
+1
+[DEBUG] Player Doyle chose action: Fold your hand with bet: 0
+[Doyle] folds.
+
+[DEBUG] Updated pot: 75, highestBet: 10
+[DEBUG] Left Of Dealer: 2
+[DEBUG] Next player: 2
+[DEBUG] ActionTaker -1 -  Next = left -  Not first round  
+[DEBUG] Exiting letPlayerstakeAction loop.
+Printing gamestate here.!!!!
+Game state: Turn
+
+
+ Not-Folded-Players: 5
+[DEBUG] Starting letPlayerstakeAction, currentRound: 4
+[DEBUG] currentPlays.LastTurnPlayer: 0, currentPlays.ActionTaker: -1
+[DEBUG] Game State: Game state: River
+
+
+
+
+
+ Not-Folded-Players: 6
+[DEBUG] Starting letPlayerstakeAction, currentRound: 3
+[DEBUG] currentPlays.LastTurnPlayer: 0, currentPlays.ActionTaker: -1
+[DEBUG] Game State: Game state: Turn
+[DEBUG] Left Of Dealer: 1
+[DEBUG] Next player: 1
+[DEBUG] Next player in sequence is seat 1 (Doyle)
+
+
+#   Name        Chips     Blind       Status
+
+------------------------------------------
+
+1   Phill       80        Dealer      Active    
+2   Doyle       75        SmallBlind  Active    
+3   Daniel      70        BigBlind    Active    
+4   Chris       80        None        Active    
+5   Johnny      80        None        Active    
+6   You         80        None        Active    
+------------------------------------------
+
+
+=============================================
+
+It's Doyle's turn!
+
+Doyle has 75 chips.
+
+Game state: Turn
+Hole Cards:
+  King of Spades
+
+  Seven of Spades
+
+Next to act: Daniel
+
+Highest bet so far: 10
+
+Pot: 135
+
+=============================================
+
+
+Available actions:
+
+1) Fold your hand [Amount: 0]
+
+2) Check and pass [Amount: 0]
+
+3) Go all in with atleast:  [Amount: 75]
+
+4) Place a bet with atleast:  [Amount: 10]
+
+Enter the number of your choice: 
+1
+[DEBUG] Player Doyle chose action: Fold your hand with bet: 0
+[Doyle] folds.
+
+[DEBUG] Updated pot: 135, highestBet: 10
+[DEBUG] Left Of Dealer: 2
+[DEBUG] Next player: 2
+[DEBUG] ActionTaker -1 -  Next = left -  Not first round  
+[DEBUG] Exiting letPlayerstakeAction loop.
+Printing gamestate here.!!!!
+Game state: Turn
+
+
+ Not-Folded-Players: 5
+[DEBUG] Starting letPlayerstakeAction, currentRound: 4
+[DEBUG] currentPlays.LastTurnPlayer: 0, currentPlays.ActionTaker: -1
+[DEBUG] Game State: Game state: River
+
+

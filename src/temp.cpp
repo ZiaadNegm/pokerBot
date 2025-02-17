@@ -339,9 +339,12 @@ private:
   // Refactored handleCall function
   actions handleCall(Player &player, bool isYou) {
     money toCall = highestBettedInRound - player.getCurrentBet();
+    such as Alle Afbeeldingen Video's Nieuws Web Boeken Financieel Tools
+        Examples Comma Abbreviation Synonym Conjunction Ie Including vs Like
+            instead of Engels Nederlands such as
 
-    // 1. If there's no extra to call:
-    if (toCall <= 0) {
+        // 1. If there's no extra to call:
+        if (toCall <= 0) {
       std::cout << "[" << player.getName() << "] checks (no extra to call).\n";
       player.check();
       return actions::check;
