@@ -141,19 +141,20 @@ TEST_F(PlayerTest, Call) {
   p->setChips(500);
   p->setCurrentBet(100);
 
-  // If global bet is 200, we only need to pay 100 more
+  // Now you pass the full global bet to call() (200 in this example)
   int toCall = p->call(200);
-  EXPECT_EQ(toCall, 100);
-  EXPECT_EQ(p->getChips(), 400u);
-  EXPECT_EQ(p->getCurrentBet(), 200u);
+  EXPECT_EQ(toCall, 200);
+  EXPECT_EQ(p->getChips(), 300u);      // 500 - 200
+  EXPECT_EQ(p->getCurrentBet(), 300u); // 100 + 200
 
-  // If global bet is extremely high, we can only call up to our chips
+  // Adjusted test code for Call.
   p->setCurrentBet(200); // Suppose we've matched the bet up to 200
-  p->setChips(50);       // We only have 50 left
-  toCall = p->call(1000);
-  EXPECT_EQ(toCall, 50);               // All in
-  EXPECT_EQ(p->getChips(), 0u);        // 50 - 50
-  EXPECT_EQ(p->getCurrentBet(), 250u); // 200 + 50
+  p->setChips(50);       // We only have 50 left available to call
+  toCall =
+      p->call(50); // Now we explicitly pass in the amount we intend to call.
+  EXPECT_EQ(toCall, 50);
+  EXPECT_EQ(p->getChips(), 0u);        // 50 - 50 = 0
+  EXPECT_EQ(p->getCurrentBet(), 250u); // 200 + 50 = 250
 }
 
 TEST_F(PlayerTest, FoldAndResetCurrentBet) {

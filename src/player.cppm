@@ -138,7 +138,6 @@ public:
   void check();
 
   int call(int globalCurrentBet) {
-    money toCall = globalCurrentBet - currentBet;
     deductChips(globalCurrentBet);
     currentBet += globalCurrentBet; // Update player's current bet
     return globalCurrentBet;

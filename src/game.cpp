@@ -90,34 +90,40 @@ private:
   bool freePassForLeftOfDealer = false;
   position leftPlayerToDealer;
   // Define an alias for functions that handle actions.
-  using actionHandler =
-      std::function<void(Game *, std::shared_ptr<Player> &, Action)>;
+  using actionHandler = std::function<void(std::shared_ptr<Player> &, Action)>;
 
+  // Update the map with lambdas accepting "Game* g" and marking it unused
   std::unordered_map<actions, actionHandler> actionToFunction = {
       {actions::fold,
        static_cast<actionHandler>(
-           [this](Game *game, std::shared_ptr<Player> &player,
-                  Action action) -> void { this->fold(player, action); })},
+           [this](std::shared_ptr<Player> &player, Action action) {
+             this->fold(player, action);
+           })},
       {actions::check,
        static_cast<actionHandler>(
-           [this](Game *game, std::shared_ptr<Player> &player,
-                  Action action) -> void { this->check(player, action); })},
+           [this](std::shared_ptr<Player> &player, Action action) {
+             this->check(player, action);
+           })},
       {actions::call,
        static_cast<actionHandler>(
-           [this](Game *game, std::shared_ptr<Player> &player,
-                  Action action) -> void { this->call(player, action); })},
+           [this](std::shared_ptr<Player> &player, Action action) {
+             this->call(player, action);
+           })},
       {actions::raise,
        static_cast<actionHandler>(
-           [this](Game *game, std::shared_ptr<Player> &player,
-                  Action action) -> void { this->raise(player, action); })},
+           [this](std::shared_ptr<Player> &player, Action action) {
+             this->raise(player, action);
+           })},
       {actions::allIn,
        static_cast<actionHandler>(
-           [this](Game *game, std::shared_ptr<Player> &player,
-                  Action action) -> void { this->allIn(player, action); })},
+           [this](std::shared_ptr<Player> &player, Action action) {
+             this->allIn(player, action);
+           })},
       {actions::bet,
        static_cast<actionHandler>(
-           [this](Game *game, std::shared_ptr<Player> &player,
-                  Action action) -> void { this->bet(player, action); })}};
+           [this](std::shared_ptr<Player> &player, Action action) {
+             this->bet(player, action);
+           })}};
 
   std::unordered_map<gameStates, stateHandler> stateToFunction = {
       {gameStates::preFlop, [](Game *g) { g->handlePreFlop(); }},
@@ -664,7 +670,7 @@ private:
    */
   void performAction(std::shared_ptr<Player> player, Action actionToExecute) {
     auto actionHandler = actionToFunction[actionToExecute.action];
-    actionHandler(this, player, actionToExecute);
+    actionHandler(player, actionToExecute);
   }
 
   /* offers certain options to the player. The player gives his option as input.
@@ -881,9 +887,8 @@ public:
         gameState(gameStates::preFlop), settings(), gamePositions() {}
 
   Game(playersPool &players, gameSettings &settings, const positions &pos)
-      : players(players), settings(settings), gamePositions(pos), pot(0),
-        highestBet(0), deck(), communityCards({}),
-        gameState(gameStates::preFlop),
+      : pot(0), players(players), deck(), communityCards({}), highestBet(0),
+        gameState(gameStates::preFlop), settings(settings), gamePositions(pos),
         currentPlays(gamePositions.posBB + 1, gamePositions.posSB + 1) {}
 
   /* Will function as the entre point for a round.
@@ -903,10 +908,11 @@ public:
   }
 };
 
-class ManagerTest;
+struct ManagerTest;
 
 class Manager {
 private:
+  Game game;                        //  The game containing all the core logic.
   gameSettings settings;            // a struct containing all default settings
   std::vector<std::string> names;   // Default names for six players.
   notActivePlayers inActivePlayers; // All players who have 0 chips and cannot
@@ -914,9 +920,8 @@ private:
   playersHistory History;           // The history of each player.
   size_t currentRound;
   positions specialPositions; // struct containing position of BB SB and Dealer.
-  bool gameActive;
 
-  friend class ManagerTest;
+  friend struct ManagerTest;
 
   int activePlayers() {
     int activeCount = 0;
@@ -929,7 +934,6 @@ private:
   }
 
 public:
-  Game game;           //  The game containing all the core logic.
   playersPool players; // a deque with shared pointers to each player.
   Manager()
       : game(), names({"Phill", "Doyle", "Daniel", "Chris", "Johnny", "You"}),
@@ -945,7 +949,7 @@ public:
    * array.) When too few names provided, ask input to fill in missingAmount
    * of names.
    */
-  void handleTooFewNamesProvided(int missingAmount) {}
+  // void handleTooFewNamesProvided(int missingAmount) {}
 
   /* Initalizes the SB BB and D positions. This can't be reduced to a default
    * value init as in the begin of the game we might already have inactive
@@ -987,10 +991,12 @@ public:
   void initalizePLayers() {
 
     if (names.size() < settings.minAmountPlayers) {
-      handleTooFewNamesProvided(names.size() - settings.minAmountPlayers);
+      // handleTooFewNamesProvided(names.size() - settings.minAmountPlayers);
+      // Right now we play the game with static names defined.
     }
 
-    for (int i = 0; i < names.size() and i < settings.maxAmountPlayers; i++) {
+    for (size_t i = 0; i < names.size() and i < settings.maxAmountPlayers;
+         i++) {
       std::shared_ptr<Player> p =
           make_shared<Player>(names[i], settings.startingChips);
       players.emplace_back(p);
@@ -1059,7 +1065,7 @@ public:
    * game.simulateHand()? At the end set the gameActive variable to false?
    */
   void startGame() {
-    for (int i = 0; i < settings.maximumRounds; i++) {
+    for (size_t i = 0; i < settings.maximumRounds; i++) {
       Game game(players, settings, specialPositions);
       game.simulateHand();
       decidePlayersLifeCycle();

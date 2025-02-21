@@ -66,6 +66,7 @@ cmake -G Ninja \
       -DCMAKE_CXX_COMPILER=clang++ \
       -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
       -DCMAKE_CXX_SCAN_FOR_MODULES=ON \
+      -DCMAKE_CXX_FLAGS="-Wall -Wextra -Wpedantic" \
       ..
 
 # Build the project
