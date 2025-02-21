@@ -1,6 +1,5 @@
-#include <memory>
-import player;
-import cards;
+#include "../include/cards.hpp"
+#include "../include/player.hpp"
 
 #include <gtest/gtest.h>
 

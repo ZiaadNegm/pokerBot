@@ -1,6 +1,5 @@
 // tests/cards_test.cpp
-import cards; // Import the 'cards' module
-
+#include "../include/cards.hpp"
 #include <gtest/gtest.h>
 
 // Test the Card class

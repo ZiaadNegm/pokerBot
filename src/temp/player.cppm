@@ -27,14 +27,14 @@
  *    -fold folds the player's hand.
  *    -resetCurrentBet resets the player's current bet.
  */
-module; // <--- global module fragment
+module;
 #include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <sys/types.h>
 #include <vector>
 
-export module player; // <--- now declare the actual module interface
+export module player;
 import cards;
 
 using money = std::uint32_t;
@@ -43,7 +43,7 @@ export enum class Blind { dealer, smallBlind, bigBlind, notBlind };
 
 export class Player {
 private:
-  static int nextId;
+  inline static int nextId = 0;
   int id;
   std::string name;
   std::vector<Card> hand;
@@ -89,7 +89,7 @@ public:
   void addChips(int amount) {
 
     if (amount < 0) {
-      return;
+      throw std::invalid_argument("Can't add negative chips");
     }
     chips += amount;
   }
@@ -97,7 +97,7 @@ public:
   // Deducts amount from chips
   void deductChips(int amount) {
     if (amount < 0) {
-      return;
+      throw std::invalid_argument("Underflowing");
     }
     chips -= amount;
   }
@@ -115,31 +115,21 @@ public:
 
   // Raises the players currentBet with raiseAmount.
   int raise(money totalRaise) {
-
-    // Calculate the additional amount to be paid.
     money diff = totalRaise - currentBet;
-
-    // Check if the player has enough chips.
     if (diff > chips) {
       throw std::invalid_argument("Not enough chips to raise by that amount.");
     }
-
-    // Deduct the additional chips.
     chips -= diff;
-
-    // Update the player's current bet.
     currentBet = totalRaise;
-
-    // Return the extra chips paid.
     return diff;
   }
 
   // Does nothing.
-  void check();
+  void check(){};
 
   int call(int globalCurrentBet) {
     deductChips(globalCurrentBet);
-    currentBet += globalCurrentBet; // Update player's current bet
+    currentBet += globalCurrentBet;
     return globalCurrentBet;
   }
 
@@ -147,9 +137,3 @@ public:
 
   void resetCurrentBet() { currentBet = 0; }
 };
-
-int Player::nextId = 0;
-
-void Player::check() {
-  // empty
-}

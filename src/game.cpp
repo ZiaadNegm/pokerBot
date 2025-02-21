@@ -1,3 +1,6 @@
+#include "../include/player.hpp"
+#include "../include/cards.hpp"
+#include "../include/bestHand.hpp"
 #include <algorithm>
 #include <assert.h>
 #include <climits>
@@ -15,10 +18,6 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
-import player;
-import cards;
-
-import bestHand;
 #define INVALID_POS INT_MIN
 #define AMOUNT_OF_CARDS 2
 

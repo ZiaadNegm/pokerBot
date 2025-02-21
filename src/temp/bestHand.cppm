@@ -5,7 +5,7 @@ module;
 #include <memory>
 
 export module bestHand;
-import player;
+#include "../include/player.hpp"
 import cards;
 
 // Add 'export' keyword before the class declaration
