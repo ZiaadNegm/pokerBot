@@ -85,21 +85,24 @@ TEST_F(PlayerTest, ReceiveAndResetCards) {
 }
 
 TEST_F(PlayerTest, AddAndDeductChips) {
-  // addChips
+  // addChips with a positive number works as expected.
   p->addChips(500);
   EXPECT_EQ(p->getChips(), 1500u);
 
-  // addChips with negative value: does nothing
-  p->addChips(-300);
-  EXPECT_EQ(p->getChips(), 1500u);
+  // If a negative value is provided, the function should throw and chips remain
+  // unchanged.
+  unsigned chipsBeforeAdd = p->getChips();
+  EXPECT_THROW(p->addChips(-300), std::invalid_argument);
+  EXPECT_EQ(p->getChips(), chipsBeforeAdd);
 
-  // deductChips
+  // deductChips with a positive number works as expected.
   p->deductChips(200);
-  EXPECT_EQ(p->getChips(), 1300u);
+  EXPECT_EQ(p->getChips(), chipsBeforeAdd - 200);
 
-  // deductChips with negative value: does nothing
-  p->deductChips(-100);
-  EXPECT_EQ(p->getChips(), 1300u);
+  // For negative deduction, expect an exception and no change in chips.
+  unsigned chipsBeforeDeduct = p->getChips();
+  EXPECT_THROW(p->deductChips(-100), std::invalid_argument);
+  EXPECT_EQ(p->getChips(), chipsBeforeDeduct);
 }
 
 TEST_F(PlayerTest, Bet) {

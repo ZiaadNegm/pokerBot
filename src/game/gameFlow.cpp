@@ -80,14 +80,3 @@ std::shared_ptr<Player> Game::subRoundHandler() {
   }
   return decideWinner();
 }
-// ------------------- Public Interface -------------------
-// gameFlow
-void Game::simulateHand() {
-  standardStartRoundOperations();
-  checkHoleCards();
-  std::shared_ptr<Player> winner = subRoundHandler();
-  if (winner) {
-    winner->addChips(pot);
-  }
-  resetHand();
-}

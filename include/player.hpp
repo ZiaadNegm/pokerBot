@@ -37,13 +37,12 @@
 #include <utility>
 #include <vector>
 
-    using money = std::uint32_t;
+using money = std::uint32_t;
 
 enum class Blind { dealer, smallBlind, bigBlind, notBlind };
 
 class Player {
 private:
-  // Inline static member (C++17 and later)
   inline static int nextId = 0;
   int id;
   std::string name;
@@ -54,7 +53,6 @@ private:
   Blind blind;
   bool hasFolded;
   bool isActive;
-
 
 public:
   // Constructor
