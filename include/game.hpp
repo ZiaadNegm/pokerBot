@@ -151,6 +151,7 @@ private:
   void standardStartRoundOperations();
   void calculateBesthand();
   std::shared_ptr<Player> &decideWinner();
+  void decidePlayersGameCycle(playersPool &players);
 
 public:
   // Public for convenience, but can also be accessed via getters/setters
