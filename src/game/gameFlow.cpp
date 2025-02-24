@@ -1,5 +1,4 @@
 #include "../include/game.hpp"
-// ------------------- Round/State Handlers -------------------
 // GameFlow
 void Game::handlePreFlop() {
   aBetHasBeenPlaced = true;

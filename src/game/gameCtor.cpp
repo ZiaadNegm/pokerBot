@@ -42,7 +42,6 @@ Game::Game(playersPool &players, gameSettings &settings, const positions &pos)
 void Game::simulateHand() {
   standardStartRoundOperations();
   checkHoleCards();
-  std::cout << "Finished checking HoleCards\n";
   std::shared_ptr<Player> winner = subRoundHandler();
   if (winner) {
     winner->addChips(pot);
