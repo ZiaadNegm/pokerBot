@@ -62,7 +62,6 @@ void Game::letPlayerstakeAction() {
   }
 }
 
-// gameFlow
 std::shared_ptr<Player> Game::subRoundHandler() {
   while (getNotFoldedPlayers() > 1) {
     auto handler = stateToFunction.at(gameState);
