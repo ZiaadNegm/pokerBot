@@ -220,4 +220,11 @@ actionMap Game::allValidAction(std::shared_ptr<Player> &player) {
   return validActionMap;
 }
 
-// gameInterfaceIO
+void decidePlayersGameCycle(playersPool &players) {
+  for (auto &player : players) {
+    if (player->getChips() == 0) {
+      player->setHasFolded(true);
+    }
+  }
+  return;
+}

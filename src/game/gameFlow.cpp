@@ -59,6 +59,7 @@ void Game::letPlayerstakeAction() {
     if (firstIterationOfRound) {
       firstIterationOfRound = false;
     }
+    decidePlayersGameCycle(players);
   }
 }
 
