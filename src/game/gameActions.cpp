@@ -63,6 +63,7 @@ void Game::allIn(std::shared_ptr<Player> &player, Action allIn) {
     highestBet = allIn.bet;
     currentPlays.ActionTaker = indexOfPlayer(players, player);
   }
+  aBetHasBeenPlaced = true;
   logActions(player, allIn);
   return;
 }
