@@ -1,6 +1,7 @@
 #ifndef GAME_HPP
 #define GAME_HPP
 
+class IGameIO;
 #include "bestHand.hpp"
 #include "cards.hpp"
 #include "player.hpp"
@@ -85,6 +86,7 @@ private:
   static const std::unordered_map<gameStates, stateHandler> stateToFunction;
   static const std::unordered_map<actions, actionHandler> actionToFunction;
   // Members
+  std::shared_ptr<IGameIO> IO;
   money pot;
   playersPool players;
   Deck deck;
