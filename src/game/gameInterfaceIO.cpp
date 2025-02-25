@@ -1,14 +1,20 @@
+#include "../include/IGameIO.hpp"
 #include "../include/game.hpp"
 // ------------------- Private Helpers -------------------
 // gameInterfaceIO
-void Game::checkHoleCards() {
+void Game::checkHoleCards() { // Group the prefix, data, postfix together, for
+                              // mutliple pairs in total
+  std::string data[2] = {"", ""};
   for (auto player : players) {
-    std::cout << "Player " << player->getName() << " Has the following cards\n";
+    std::string prefix = "Player: ";
+    std::string data = player->getName() + " Has the following cards\n";
     for (Card card : player->getHand()) {
-      std::cout << " " << card.cardToString() << "\n";
+      output += " " + card.cardToString() + "\n";
     }
-    std::cout << "\n";
+    output += "\n";
+    IO->checkHoleCards(output);
   }
+  return;
 }
 // gameInterfaceIO
 void Game::printGameState(gameStates state) {
