@@ -1,4 +1,6 @@
 #include "../../include/game.hpp"
+#include "DifferentTypeInterfaces/ConsoleGameIO.cpp"
+#include <memory>
 
 const std::unordered_map<actions, Game::actionHandler> Game::actionToFunction =
     {{actions::fold,
@@ -22,16 +24,17 @@ const std::unordered_map<gameStates, Game::stateHandler> Game::stateToFunction =
      {gameStates::showDown, [](Game *g) { g->handleShowDown(); }}};
 
 Game::Game()
-    : pot(0), players(), deck(), communityCards(), highestBet(0),
-      gameState(gameStates::preFlop), settings(), raiseAmount(settings.minBet),
-      gamePositions(), aBetHasBeenPlaced(false), currentRound(0),
-      firstIterationOfRound(true), firstTime(true), killSwitch(false),
-      freePassForLeftOfDealer(false), leftPlayerToDealer(0) {}
+    : IO(std::make_shared<consoleGame>()), pot(0), players(), deck(),
+      communityCards(), highestBet(0), gameState(gameStates::preFlop),
+      settings(), raiseAmount(settings.minBet), gamePositions(),
+      aBetHasBeenPlaced(false), currentRound(0), firstIterationOfRound(true),
+      firstTime(true), killSwitch(false), freePassForLeftOfDealer(false),
+      leftPlayerToDealer(0) {}
 
 Game::Game(playersPool &players, gameSettings &settings, const positions &pos)
-    : pot(0), players(players), deck(), communityCards({}), highestBet(0),
-      gameState(gameStates::preFlop), settings(settings),
-      raiseAmount(settings.minBet), gamePositions(pos),
+    : IO(std::make_shared<consoleGame>()), pot(0), players(players), deck(),
+      communityCards({}), highestBet(0), gameState(gameStates::preFlop),
+      settings(settings), raiseAmount(settings.minBet), gamePositions(pos),
       aBetHasBeenPlaced(false), currentRound(0), firstIterationOfRound(true),
       firstTime(true), killSwitch(false), freePassForLeftOfDealer(false),
       leftPlayerToDealer(0) {

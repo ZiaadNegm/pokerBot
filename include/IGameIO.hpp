@@ -12,12 +12,15 @@ protected:
 public:
   virtual ~IGameIO() = default;
 
-  virtual void checkHoleCards(textData prefix, textData data,
-                              textData postfix) = 0;
-  virtual void printGameState(textData prefix, textData data, textData postfix) = 0;
-  virtual void showTurnInfo(const std::shared_ptr<Player> &currentPlayer) = 0;
-  virtual void printPlayersTable() = 0; // Added missing declaration
-  virtual Action
+  virtual void checkHoleCards(textData playerName,
+                              const std::vector<Card> &playerCards) = 0;
+  virtual void printGameState(textData gameState) = 0;
+  virtual void showTurnInfo(const std::shared_ptr<Player> &currentPlayer,
+                            const std::shared_ptr<Player> &nextPlayer,
+                            gameStates state, money highestBet, money pot) = 0;
+  virtual void printPlayersTable(
+      const playersPool &players) = 0; // Added missing declaration
+  virtual std::vector<actions>
   offerOptions(actionMap validMoves) = 0; // Added missing declaration
   virtual money promptForActionAmount(actions act,
                                       money minAmount) = 0; // Added
