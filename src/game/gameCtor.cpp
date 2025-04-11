@@ -1,5 +1,6 @@
 #include "../../include/game.hpp"
 #include "DifferentTypeInterfaces/ConsoleGameIO.cpp"
+#include "DifferentTypeInterfaces/JSONGameIO.cpp"
 #include <memory>
 
 const std::unordered_map<actions, Game::actionHandler> Game::actionToFunction =

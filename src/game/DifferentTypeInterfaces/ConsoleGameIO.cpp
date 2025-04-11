@@ -15,6 +15,7 @@ class consoleGame : public IGameIO {
       log(" ");
       log(card.cardToString());
     }
+    std::cout << std::endl;
     return;
   }
 

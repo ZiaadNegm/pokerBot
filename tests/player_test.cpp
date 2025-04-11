@@ -26,7 +26,7 @@ protected:
 
 TEST_F(PlayerTest, ConstructorAndGetters) {
   EXPECT_EQ(p->getName(), "Alice");
-  EXPECT_EQ(p->getId(), 0); // Changed expectation to 0 since IDs start at 0
+  EXPECT_EQ(p->getId(), 0);
   EXPECT_EQ(p->getHand().size(), 2);
   EXPECT_EQ(p->getChips(), 1000);
   EXPECT_EQ(p->getCurrentBet(), 50);
@@ -36,33 +36,26 @@ TEST_F(PlayerTest, ConstructorAndGetters) {
 }
 
 TEST_F(PlayerTest, SettersAndGetters) {
-  // setChips
   p->setChips(2000);
   EXPECT_EQ(p->getChips(), 2000u);
 
-  // setCurrentBet
   p->setCurrentBet(100);
   EXPECT_EQ(p->getCurrentBet(), 100u);
 
-  // setCanCheck
   p->setCanCheck(true);
   EXPECT_TRUE(p->canPlayerCheck());
 
-  // setBlind
   p->setBlind(Blind::bigBlind);
   EXPECT_EQ(p->getBlind(), Blind::bigBlind);
 
-  // setHasFolded
   p->setHasFolded(true);
   EXPECT_TRUE(p->hasPlayerFolded());
 }
 
 TEST_F(PlayerTest, ReceiveAndResetCards) {
-  // Ensure hand is empty at start
   p->resetCards();
   EXPECT_TRUE(p->getHand().empty());
 
-  // Add cards one at a time
   Card card1(Suit::Diamonds, Rank::Two);
   Card card2(Suit::Clubs, Rank::Three);
 
@@ -79,27 +72,21 @@ TEST_F(PlayerTest, ReceiveAndResetCards) {
   EXPECT_EQ(hand[1].getRank(), Rank::Three);
   EXPECT_EQ(hand[1].getSuit(), Suit::Clubs);
 
-  // Test reset
   p->resetCards();
   EXPECT_TRUE(p->getHand().empty());
 }
 
 TEST_F(PlayerTest, AddAndDeductChips) {
-  // addChips with a positive number works as expected.
   p->addChips(500);
   EXPECT_EQ(p->getChips(), 1500u);
 
-  // If a negative value is provided, the function should throw and chips remain
-  // unchanged.
   unsigned chipsBeforeAdd = p->getChips();
   EXPECT_THROW(p->addChips(-300), std::invalid_argument);
   EXPECT_EQ(p->getChips(), chipsBeforeAdd);
 
-  // deductChips with a positive number works as expected.
   p->deductChips(200);
   EXPECT_EQ(p->getChips(), chipsBeforeAdd - 200);
 
-  // For negative deduction, expect an exception and no change in chips.
   unsigned chipsBeforeDeduct = p->getChips();
   EXPECT_THROW(p->deductChips(-100), std::invalid_argument);
   EXPECT_EQ(p->getChips(), chipsBeforeDeduct);
@@ -117,7 +104,6 @@ TEST_F(PlayerTest, Bet) {
   EXPECT_EQ(p->getChips(), 800u);      // 1000 - 200
   EXPECT_EQ(p->getCurrentBet(), 250u); // 50 + 200
 
-  // Bet with an amount more than available => should throw
   EXPECT_THROW(p->bet(2000), std::invalid_argument);
 }
 
@@ -134,7 +120,6 @@ TEST_F(PlayerTest, Raise) {
   EXPECT_EQ(p->getChips(), 850u); // 1000 - 150
   EXPECT_EQ(p->getCurrentBet(), 250u);
 
-  // Attempt a raise that exceeds chips
   EXPECT_THROW(p->raise(3000), std::invalid_argument);
 }
 
@@ -143,17 +128,14 @@ TEST_F(PlayerTest, Call) {
   p->setChips(500);
   p->setCurrentBet(100);
 
-  // Now you pass the full global bet to call() (200 in this example)
   int toCall = p->call(200);
   EXPECT_EQ(toCall, 200);
   EXPECT_EQ(p->getChips(), 300u);      // 500 - 200
   EXPECT_EQ(p->getCurrentBet(), 300u); // 100 + 200
 
-  // Adjusted test code for Call.
   p->setCurrentBet(200); // Suppose we've matched the bet up to 200
   p->setChips(50);       // We only have 50 left available to call
-  toCall =
-      p->call(50); // Now we explicitly pass in the amount we intend to call.
+  toCall = p->call(50);
   EXPECT_EQ(toCall, 50);
   EXPECT_EQ(p->getChips(), 0u);        // 50 - 50 = 0
   EXPECT_EQ(p->getCurrentBet(), 250u); // 200 + 50 = 250

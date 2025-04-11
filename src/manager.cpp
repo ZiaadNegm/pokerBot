@@ -83,9 +83,6 @@ void Manager::initalizeSpecialPositions() {
 }
 
 void Manager::initalizePLayers() {
-  // If fewer than min players in names, you could handle it here
-  // e.g. prompt or fill with default placeholders
-
   for (size_t i = 0; i < names.size() && i < settings.maxAmountPlayers; i++) {
     std::shared_ptr<Player> p =
         std::make_shared<Player>(names[i], settings.startingChips);
@@ -106,7 +103,6 @@ void Manager::gameStatistics() {
   std::cout << "==========================================" << std::endl;
   std::cout << "Current Round: " << currentRound << std::endl << std::endl;
 
-  // Print header
   std::cout << std::left << std::setw(4) << "#" << std::setw(12) << "Name"
             << std::setw(10) << "Chips" << std::setw(12) << "Blind"
             << std::setw(10) << "Status" << std::endl;
@@ -173,7 +169,6 @@ void Manager::endGame() {
 
   std::cout << "------------------------------------------" << std::endl;
 
-  // Copy players to a vector so we can sort them
   std::vector<std::shared_ptr<Player>> sortedPlayers(players.begin(),
                                                      players.end());
   std::sort(
@@ -182,7 +177,6 @@ void Manager::endGame() {
         return a->getChips() > b->getChips();
       });
 
-  // Display each player's final chips
   int rank = 1;
   for (const auto &player : sortedPlayers) {
     std::cout << std::left << std::setw(4) << rank << std::setw(15)

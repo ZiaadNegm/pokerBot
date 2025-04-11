@@ -1,14 +1,8 @@
 #include "../include/manager.hpp"
 #include <gtest/gtest.h>
 #include <iostream>
-
-// We do NOT put this in a different namespace (e.g. not in `namespace test {}`)
-// because Manager is in the global namespace and we've declared a friend struct
-// ManagerTest.
-
 namespace {
 
-// Optional helper for debugging
 void printBlindValues(const Manager &manager) {
   std::cout << "Current blind values:\n";
   for (size_t i = 0; i < manager.players.size(); i++) {
@@ -28,24 +22,21 @@ void setPlayerActive(Manager &manager, size_t playerIndex, bool isActive) {
   }
 }
 
-} // end anonymous namespace
+}
 
 // --------------------------
 // GTest Fixture: ManagerTest
 // --------------------------
 struct ManagerTest : public ::testing::Test {
 protected:
-  Manager manager; // We can now see its private members (like manager.names)
+  Manager manager;
 
   void SetUp() override {
-    // Directly access 'names', even though it's private in Manager:
     manager.names[0] = "InitialTestName";
   }
 };
 
-// Demonstrate friend-level access
 
-// Example test from your original code: AllPlayersActive
 TEST_F(ManagerTest, AllPlayersActive) {
   // Activate all players
   for (size_t i = 0; i < manager.players.size(); i++) {
@@ -124,12 +115,10 @@ TEST_F(ManagerTest, MultipleRotations) {
     auto pos = manager.getSpecialPositions();
     printBlindValues(manager);
 
-    // Check the assigned blinds
     ASSERT_EQ(manager.players[pos->dealerPosition]->getBlind(), Blind::dealer);
     ASSERT_EQ(manager.players[pos->posSB]->getBlind(), Blind::smallBlind);
     ASSERT_EQ(manager.players[pos->posBB]->getBlind(), Blind::bigBlind);
 
-    // Positions must differ
     ASSERT_NE(pos->dealerPosition, pos->posSB);
     ASSERT_NE(pos->dealerPosition, pos->posBB);
     ASSERT_NE(pos->posSB, pos->posBB);

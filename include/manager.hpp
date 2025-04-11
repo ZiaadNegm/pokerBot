@@ -1,7 +1,7 @@
 #ifndef MANAGER_HPP
 #define MANAGER_HPP
 
-#include "cards.hpp"  // If needed
+#include "cards.hpp"
 #include "game.hpp"   // So we have Game, playersPool, positions, etc.
 #include "player.hpp" // For Player definition
 #include <algorithm>
